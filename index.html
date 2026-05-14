@@ -14,20 +14,21 @@
     #message { position: absolute; bottom: 30px; width: 100%; text-align: center; font-size: 15px; color: #f66; text-shadow: 0 0 10px #f00; opacity: 0; transition: opacity 0.2s; pointer-events: none; font-weight: bold; letter-spacing: 1px; z-index: 2; }
     #message.show { opacity: 1; }
     
-    /* 🔥 ФОНОВЫЙ GIF */
+    /* 🔥 ФОНОВЫЙ GIF НА ВЕСЬ ЭКРАН */
     #bg-gif {
       position: fixed;
       top: 0; left: 0;
       width: 100vw; height: 100vh;
       object-fit: cover;
       z-index: 0;
-      opacity: 0.4;
-      filter: contrast(1.2) brightness(0.7) saturate(0.5);
+      opacity: 0.35;
+      filter: contrast(1.2) brightness(0.6) saturate(0.4);
+      pointer-events: none;
     }
     
     #start-screen, #win-screen, #lose-screen, #level-screen { 
       position: absolute; 
-      background: rgba(0,0,0,0.88); 
+      background: rgba(0,0,0,0.85); 
       color: #0f0; 
       padding: 25px 30px; 
       text-align: center; 
@@ -52,8 +53,8 @@
   </style>
 </head>
 <body>
-  <!-- 🔥 ФОНОВЫЙ GIF НА ВЕСЬ ЭКРАН -->
-  <img id="bg-gif" src="intro.gif" alt="" onerror="this.style.display='none'">
+  <!-- 🔥 ФОНОВЫЙ GIF НА ВЕСЬ ЭКРАН (без onerror) -->
+  <img id="bg-gif" src="intro.gif" alt="">
   
   <canvas id="game" width="800" height="600"></canvas>
   <div id="vignette"></div>
@@ -466,7 +467,7 @@
       document.getElementById('win-screen').classList.add('hidden'); 
       document.getElementById('lose-screen').classList.add('hidden');
       document.getElementById('level-screen').classList.add('hidden');
-      document.getElementById('bg-gif').style.display = 'none';  // 🔥 СКРЫВАЕМ GIF ПРИ СТАРТЕ
+      document.getElementById('bg-gif').style.display = 'none';
       pressedKeys = {}; holdBar.style.display = 'none'; 
       if (audioCtx) setTimeout(playAmbient, 2000); 
     }
