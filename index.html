@@ -8,20 +8,29 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #000; color: #0f0; font-family: 'Courier New', monospace; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; user-select: none; }
     canvas { image-rendering: pixelated; box-shadow: 0 0 20px #0f0, inset 0 0 30px rgba(0,255,0,0.1); border: 2px solid #0f0; max-width: 100vw; max-height: 100vh; }
+    
     #ui { position: absolute; top: 10px; left: 10px; font-size: 13px; text-shadow: 0 0 5px #0f0; pointer-events: none; line-height: 1.4; }
+    #lives { position: absolute; top: 10px; right: 10px; font-size: 20px; pointer-events: none; text-shadow: 0 0 8px #f00; letter-spacing: 4px; transition: color 0.3s; }
+    #level-indicator { position: absolute; top: 38px; right: 10px; font-size: 11px; color: #6f6; pointer-events: none; text-shadow: 0 0 3px #0f0; }
+    
     #message { position: absolute; bottom: 30px; width: 100%; text-align: center; font-size: 15px; color: #f66; text-shadow: 0 0 10px #f00; opacity: 0; transition: opacity 0.2s; pointer-events: none; font-weight: bold; letter-spacing: 1px; }
     #message.show { opacity: 1; }
-    #start-screen, #win-screen, #lose-screen { position: absolute; background: rgba(0,0,0,0.97); color: #0f0; padding: 25px 30px; text-align: center; border: 2px solid #0f0; max-width: 480px; z-index: 10; box-shadow: 0 0 30px rgba(0,255,0,0.2); }
-    #start-screen h1, #win-screen h1, #lose-screen h1 { margin-bottom: 15px; font-size: 28px; letter-spacing: 3px; }
-    #start-screen p, #win-screen p, #lose-screen p { margin: 8px 0; font-size: 13px; opacity: 0.9; }
+    
+    #start-screen, #win-screen, #lose-screen, #level-screen { position: absolute; background: rgba(0,0,0,0.97); color: #0f0; padding: 25px 30px; text-align: center; border: 2px solid #0f0; max-width: 480px; z-index: 10; box-shadow: 0 0 30px rgba(0,255,0,0.2); }
+    #start-screen h1, #win-screen h1, #lose-screen h1, #level-screen h1 { margin-bottom: 15px; font-size: 28px; letter-spacing: 3px; }
+    #start-screen p, #win-screen p, #lose-screen p, #level-screen p { margin: 8px 0; font-size: 13px; opacity: 0.9; }
     #start-screen .warning { color: #f66; font-weight: bold; margin-top: 12px; }
-    #start-screen button, #win-screen button, #lose-screen button { margin-top: 20px; padding: 12px 28px; background: #0f0; color: #000; border: none; font-family: inherit; font-weight: bold; font-size: 14px; cursor: pointer; letter-spacing: 1px; transition: all 0.1s; }
-    #start-screen button:hover, #win-screen button:hover, #lose-screen button:hover { background: #0c0; box-shadow: 0 0 15px #0f0; transform: scale(1.03); }
+    #start-screen button, #win-screen button, #lose-screen button, #level-screen button { margin-top: 20px; padding: 12px 28px; background: #0f0; color: #000; border: none; font-family: inherit; font-weight: bold; font-size: 14px; cursor: pointer; letter-spacing: 1px; transition: all 0.1s; }
+    #start-screen button:hover, #win-screen button:hover, #lose-screen button:hover, #level-screen button:hover { background: #0c0; box-shadow: 0 0 15px #0f0; transform: scale(1.03); }
     .hidden { display: none !important; }
+    
     body::after { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.12), rgba(0,0,0,0.12) 1px, transparent 1px, transparent 2px); pointer-events: none; z-index: 5; opacity: 0.7; }
     #vignette { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.85) 100%); opacity: 0.6; transition: opacity 0.3s; }
     .hold-bar { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); width: 200px; height: 6px; background: rgba(0,50,0,0.8); border: 1px solid #0f0; display: none; z-index: 8; }
     .hold-bar-fill { height: 100%; width: 0%; background: #0f0; transition: width 0.05s linear; }
+    
+    @keyframes heartBreak { 0% { transform: scale(1); } 50% { transform: scale(1.5); color: #f00; } 100% { transform: scale(1); } }
+    .heart-lost { animation: heartBreak 0.4s ease-out; }
   </style>
 </head>
 <body>
@@ -29,14 +38,9 @@
   <div id="vignette"></div>
   <div class="hold-bar"><div class="hold-bar-fill" id="hold-fill"></div></div>
   
-  <div id="ui">
-    🗝️ Карты: <span id="cards">0</span>/3<br>
-    🫁 Тишина: <span id="silence">0</span>c<br>
-    <span id="stealth-tip" style="color:#6f6; font-size:11px; margin-top:5px; display:block">
-      SHIFT — задержка дыхания<br>
-      SPACE — эхо (ОНА услышит!)
-    </span>
-  </div>
+  <div id="ui">🗝️ Карты: <span id="cards">0</span>/<span id="cards-total">3</span></div>
+  <div id="lives">♥♥♥</div>
+  <div id="level-indicator">УРОВЕНЬ 1</div>
   <div id="message"></div>
 
   <div id="start-screen">
@@ -44,58 +48,69 @@
     <p>WASD / стрелки — движение</p>
     <p>SPACE — эхо (видишь окружение)</p>
     <p>SHIFT — задержка дыхания (не двигаться)</p>
-    <p style="margin-top:12px">🗝️ Найди 3 карты → выйди через дверь</p>
+    <p style="margin-top:12px">🗝️ Найди все карты → выйди через дверь</p>
     <p class="warning">⚠️ ОНА слышит каждое эхо...<br>и видит тебя, если подойдёшь близко</p>
     <p style="font-size:11px; opacity:0.6; margin-top:8px" id="svg-status">Загрузка...</p>
     <button id="start-btn">НАЧАТЬ</button>
+  </div>
+
+  <div id="level-screen" class="hidden">
+    <h1 id="level-title">УРОВЕНЬ 2</h1>
+    <p id="level-desc">4 карты • ОНА быстрее</p>
+    <button id="level-next-btn">ПРОДОЛЖИТЬ</button>
   </div>
 
   <div id="win-screen" class="hidden">
     <h1>✓ ТЫ ВЫШЕЛ</h1>
     <p>Ты обманул Её... на этот раз.</p>
     <p style="font-size:11px; opacity:0.7; margin-top:10px">Но эхо остаётся в стенах.</p>
-    <button id="restart-win">ЕЩЁ РАЗ</button>
+    <button id="restart-win">НАЧАТЬ ЗАНОВО</button>
   </div>
 
   <div id="lose-screen" class="hidden">
     <h1 style="color:#f00">✗ ОНА ТЕБЯ НАШЛА</h1>
-    <p>Слишком громко. Слишком близко.</p>
+    <p id="death-message">Слишком громко. Слишком близко.</p>
     <button id="restart-lose">ПОПРОБОВАТЬ СНОВА</button>
   </div>
 
   <script async src="https://vibej.am/2026/widget.js"></script>
 
   <script>
-    // ==================== КОНФИГУРАЦИЯ ====================
+    // ==================== КОНФИГУРАЦИЯ УРОВНЕЙ ====================
+    const LEVELS = [
+      { cards: 3, enemySpeed: 1.3, patrolRadius: 320, echoRadius: 90, name: "БУНКЕР", desc: "3 карты • Стандарт" },
+      { cards: 4, enemySpeed: 1.5, patrolRadius: 380, echoRadius: 80, name: "ЛАБИРИНТ", desc: "4 карты • ОНА быстрее" },
+      { cards: 5, enemySpeed: 1.7, patrolRadius: 420, echoRadius: 70, name: "БЕЗДНА", desc: "5 карт • ОНА быстрее и злее" }
+    ];
+
     const CONFIG = {
       width: 800, height: 600,
-      playerSpeed: 2.2, enemyPatrolSpeed: 1.3, enemyChaseSpeed: 2.4,
-      echoRadius: 90, echoDuration: 48,
+      playerSpeed: 2.2, enemyPatrolSpeed: 1.1, enemyChaseSpeed: 2.4,
+      echoDuration: 48,
       enemyVisionRange: 190, enemyVisionAngle: 110,
       cardHoldTime: 55, silenceThreshold: 200,
       heartbeatBase: 50, heartbeatMax: 200, gridSize: 40,
       fogGridSize: 30, fogBaseRadius: 120, fogFadeMargin: 40,
       fogMinAlpha: 0.92, fogMaxAlpha: 0.85, fogLerpBase: 0.004,
-      enemyPatrolRadius: 320
+      maxLives: 3
     };
 
     // ==================== СОСТОЯНИЕ ====================
     const state = {
       running: false, cardsFound: 0, silenceTimer: 0, echoTimer: 0,
       gameOver: false, win: false, heartbeatTimer: 0, screenPulse: 0,
-      holdingCard: null, svgLoaded: false, currentFogRadius: 120
+      holdingCard: null, svgLoaded: false, currentFogRadius: 120,
+      currentLevel: 0, lives: 3, transitioning: false
     };
 
-    // ==================== ЗАГРУЗКА SVG (устойчивая) ====================
+    // ==================== ЗАГРУЗКА SVG ====================
     const svgAssets = { map: null, player: null, enemy: null, card: null };
     const svgPaths = { player: [], enemy: [], card: [] };
     
     async function loadSVG(src) {
       try {
-        const ctrl = new AbortController();
-        const tid = setTimeout(() => ctrl.abort(), 2000);
-        const r = await fetch(src, { signal: ctrl.signal });
-        clearTimeout(tid);
+        const ctrl = new AbortController(); const tid = setTimeout(() => ctrl.abort(), 2000);
+        const r = await fetch(src, { signal: ctrl.signal }); clearTimeout(tid);
         if (!r.ok) return null;
         const doc = new DOMParser().parseFromString(await r.text(), 'image/svg+xml');
         return doc.querySelector('parsererror') ? null : doc;
@@ -114,7 +129,7 @@
     
     async function loadAllSVGs() {
       const status = document.getElementById('svg-status');
-      status.textContent = '🔍 Проверка ресурсов...';
+      status.textContent = ' Проверка ресурсов...';
       const [m, p, e, c] = await Promise.all([loadSVG('map.svg').catch(()=>null), loadSVG('player.svg').catch(()=>null), loadSVG('enemy.svg').catch(()=>null), loadSVG('card.svg').catch(()=>null)]);
       let loaded = [];
       if (m) { svgAssets.map = m; loaded.push('карта'); }
@@ -122,7 +137,7 @@
       if (e) { svgAssets.enemy = e; svgPaths.enemy = extractPaths(e, 'enemy'); loaded.push('враг'); }
       if (c) { svgAssets.card = c; svgPaths.card = extractPaths(c, 'card'); loaded.push('артефакт'); }
       state.svgLoaded = loaded.length > 0;
-      status.textContent = loaded.length > 0 ? `✅ Загружено: ${loaded.join(', ')}` : '⚙️ SVG не найдены → используется процедурная генерация';
+      status.textContent = loaded.length > 0 ? `✅ Загружено: ${loaded.join(', ')}` : '️ SVG не найдены → используется процедурная генерация';
       status.style.color = loaded.length > 0 ? '#0f0' : '#6f6';
       return true;
     }
@@ -135,7 +150,7 @@
     const holdFill = document.getElementById('hold-fill');
     
     const player = { x: 60, y: 300, radius: 10, color: '#0f0', breathHold: false };
-    const enemy = { x: 740, y: 300, radius: 13, color: '#f44', direction: Math.PI, patrol: { x: 740, y: 300, radius: CONFIG.enemyPatrolRadius, angle: 0 }, investigate: null, alertPulse: 0, stuckFrames: 0, lastX: 0, lastY: 0 };
+    const enemy = { x: 740, y: 300, radius: 13, color: '#f44', direction: Math.PI, patrol: { x: 740, y: 300, radius: 320, angle: 0 }, investigate: null, alertPulse: 0, stuckFrames: 0, lastX: 0, lastY: 0 };
     let cards = [];
     const exit = { x: 755, y: 275, w: 25, h: 50, active: false };
     let walls = [];
@@ -151,7 +166,27 @@
     function playCardCollect() { [580, 740, 930].forEach((f, i) => playTone(f, 0.07, 'sine', 0.06, i * 0.05)); }
     function playWin() { [523, 659, 784, 1047].forEach((f, i) => playTone(f, 0.18, 'sine', 0.07, i * 0.12)); }
     function playLose() { playTone(70, 0.4, 'sawtooth', 0.18); playTone(45, 0.6, 'square', 0.25, 0.25); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.frequency.value = 25; g.gain.value = 0.15; o.connect(g); g.connect(audioCtx.destination); o.start(); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2); o.stop(audioCtx.currentTime + 1.2); }
+    function playLevelUp() { [440, 550, 660, 880].forEach((f, i) => playTone(f, 0.12, 'sine', 0.08, i * 0.1)); }
     function playAmbient() { if (!audioCtx) return; const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = 'triangle'; o.frequency.value = 28 + Math.random() * 8; g.gain.value = 0.015; o.connect(g); g.connect(audioCtx.destination); o.start(); const d = 3 + Math.random() * 3; g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + d); o.stop(audioCtx.currentTime + d + 0.1); setTimeout(playAmbient, 4000 + Math.random() * 5000); }
+
+    // ==================== UI: ЖИЗНИ И УРОВНИ ====================
+    function updateLivesUI() {
+      const livesEl = document.getElementById('lives');
+      let hearts = '';
+      for (let i = 0; i < CONFIG.maxLives; i++) hearts += i < state.lives ? '♥' : '♡';
+      livesEl.textContent = hearts;
+      livesEl.style.color = state.lives === 1 ? '#f00' : (state.lives === 2 ? '#f66' : '#0f0');
+    }
+    function animateHeartLoss() {
+      const livesEl = document.getElementById('lives');
+      livesEl.classList.add('heart-lost');
+      setTimeout(() => livesEl.classList.remove('heart-lost'), 400);
+    }
+    function updateLevelUI() {
+      const level = LEVELS[state.currentLevel];
+      document.getElementById('level-indicator').textContent = `УРОВЕНЬ ${state.currentLevel + 1}: ${level.name}`;
+      document.getElementById('cards-total').textContent = level.cards;
+    }
 
     // ==================== ГЕНЕРАЦИЯ УРОВНЯ ====================
     function initFog() {
@@ -162,33 +197,42 @@
 
     function generateRandomCards(count, minDist = 100) {
       const res = []; let att = 0;
-      while (res.length < count && att < 150) {
+      while (res.length < count && att < 200) {
         att++;
-        const x = 40 + Math.random() * (CONFIG.width - 80), y = 40 + Math.random() * (CONFIG.height - 80);
+        const x = 50 + Math.random() * (CONFIG.width - 100), y = 50 + Math.random() * (CONFIG.height - 100);
         let ok = true;
-        for (const w of walls) if (x > w.x - 20 && x < w.x + w.w + 20 && y > w.y - 20 && y < w.y + w.h + 20) { ok = false; break; }
+        for (const w of walls) if (x > w.x - 25 && x < w.x + w.w + 25 && y > w.y - 25 && y < w.y + w.h + 25) { ok = false; break; }
         if (!ok || res.some(c => Math.hypot(x - c.x, y - c.y) < minDist)) continue;
+        if (Math.hypot(x - (CONFIG.width - 35), y - CONFIG.height / 2) < 80) continue;
         res.push({ x, y, radius: 7, collected: false, holdProgress: 0 });
       }
       return res.length === count ? res : null;
     }
 
     function generateLevel() {
-      walls = []; cards = [];
+      const level = LEVELS[state.currentLevel];
+      walls = [];
       walls.push({x:0,y:0,w:CONFIG.width,h:18}, {x:0,y:CONFIG.height-18,w:CONFIG.width,h:18}, {x:0,y:0,w:18,h:CONFIG.height}, {x:CONFIG.width-18,y:0,w:18,h:CONFIG.height});
-      const obs = [{x:180,y:100,w:30,h:180},{x:320,y:420,w:140,h:30},{x:520,y:150,w:30,h:200},{x:200,y:450,w:100,h:30},{x:600,y:400,w:30,h:120},{x:420,y:280,w:60,h:60},{x:120,y:380,w:80,h:25}];
-      walls.push(...obs);
+      const baseObs = [{x:180,y:100,w:30,h:180},{x:320,y:420,w:140,h:30},{x:520,y:150,w:30,h:200},{x:200,y:450,w:100,h:30},{x:600,y:400,w:30,h:120},{x:420,y:280,w:60,h:60},{x:120,y:380,w:80,h:25}];
+      const extraObs = state.currentLevel >= 1 ? [{x:280,y:200,w:25,h:100},{x:650,y:100,w:30,h:150},{x:150,y:250,w:80,h:25}] : [];
+      const extraObs3 = state.currentLevel >= 2 ? [{x:450,y:400,w:25,h:120},{x:350,y:100,w:100,h:25}] : [];
+      walls.push(...baseObs, ...extraObs, ...extraObs3);
 
-      const randCards = generateRandomCards(3, 110);
-      cards = randCards || [{x:240,y:140},{x:560,y:480},{x:380,y:180}].map(p => ({x:p.x,y:p.y,radius:7,collected:false,holdProgress:0}));
+      const randCards = generateRandomCards(level.cards, 100);
+      cards = randCards || Array.from({length: level.cards}, (_, i) => ({
+        x: 100 + (i * 200) % (CONFIG.width - 200),
+        y: 100 + Math.floor(i / 3) * 200,
+        radius: 7, collected: false, holdProgress: 0
+      }));
       
       exit.active = false; exit.x = CONFIG.width - 35; exit.y = CONFIG.height / 2 - 25; exit.w = 25; exit.h = 50;
       player.x = 50; player.y = CONFIG.height / 2;
       enemy.x = CONFIG.width - 50; enemy.y = CONFIG.height / 2;
-      enemy.direction = Math.PI; enemy.patrol.radius = CONFIG.enemyPatrolRadius; enemy.patrol.angle = Math.random() * Math.PI * 2;
+      enemy.direction = Math.PI; enemy.patrol.radius = level.patrolRadius; enemy.patrol.angle = Math.random() * Math.PI * 2;
       enemy.investigate = null; enemy.alertPulse = 0; enemy.stuckFrames = 0; enemy.lastX = enemy.x; enemy.lastY = enemy.y;
       state.cardsFound = 0; state.silenceTimer = 0; state.echoTimer = 0; state.holdingCard = null; state.currentFogRadius = CONFIG.fogBaseRadius;
-      document.getElementById('cards').textContent = '0'; document.getElementById('silence').textContent = '0';
+      document.getElementById('cards').textContent = '0';
+      updateLevelUI();
       initFog();
     }
 
@@ -197,7 +241,7 @@
     function lineIntersectsWall(x1, y1, x2, y2) { for (const w of walls) { if (x1 < w.x - 5 && x2 < w.x - 5 || x1 > w.x + w.w + 5 && x2 > w.x + w.w + 5 || y1 < w.y - 5 && y2 < w.y - 5 || y1 > w.y + w.h + 5 && y2 > w.y + w.h + 5) continue; const s = [{x1:w.x,y1:w.y,x2:w.x+w.w,y2:w.y},{x1:w.x,y1:w.y+w.h,x2:w.x+w.w,y2:w.y+w.h},{x1:w.x,y1:w.y,x2:w.x,y2:w.y+w.h},{x1:w.x+w.w,y1:w.y,x2:w.x+w.w,y2:w.y+w.h}]; for (const q of s) { const d = (q.y2 - q.y1) * (x2 - x1) - (q.x2 - q.x1) * (y2 - y1); if (Math.abs(d) < 0.01) continue; const ua = ((q.x2 - q.x1) * (y1 - q.y1) - (q.y2 - q.y1) * (x1 - q.x1)) / d, ub = ((x2 - x1) * (y1 - q.y1) - (y2 - y1) * (x1 - q.x1)) / d; if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) return true; } } return false; }
     function moveWithCollision(obj, dx, dy, sp) { const nx = obj.x + dx * sp, ny = obj.y + dy * sp; let cx = true, cy = true; for (const w of walls) { if (circleRectCollision(nx, obj.y, obj.radius, w)) cx = false; if (circleRectCollision(obj.x, ny, obj.radius, w)) cy = false; } if (cx) obj.x = nx; if (cy) obj.y = ny; obj.x = Math.max(obj.radius + 2, Math.min(CONFIG.width - obj.radius - 2, obj.x)); obj.y = Math.max(obj.radius + 2, Math.min(CONFIG.height - obj.radius - 2, obj.y)); }
 
-    // ==================== ВРАГ (🔧 ИСПРАВЛЕННАЯ ЛОГИКА) ====================
+    // ==================== ВРАГ ====================
     function isInEnemyVision() {
       const dx = player.x - enemy.x, dy = player.y - enemy.y, dist = Math.hypot(dx, dy);
       if (dist > CONFIG.enemyVisionRange) return false;
@@ -205,7 +249,6 @@
       const angleToPlayer = Math.atan2(dy, dx);
       let angleDiff = Math.abs(angleToPlayer - enemy.direction);
       if (angleDiff > Math.PI) angleDiff = Math.PI * 2 - angleDiff;
-      // Динамический конус: шире вблизи
       const effectiveAngle = dist < 100 ? 360 : (dist < 150 ? CONFIG.enemyVisionAngle * 1.5 : CONFIG.enemyVisionAngle);
       return angleDiff < (effectiveAngle / 2) * Math.PI / 180;
     }
@@ -214,13 +257,10 @@
       if (enemy.alertPulse > 0) { enemy.alertPulse *= 0.94; if (enemy.alertPulse < 0.02) enemy.alertPulse = 0; }
       enemy.lastX = enemy.x; enemy.lastY = enemy.y;
 
-      // РЕЖИМ РАССЛЕДОВАНИЯ
       if (enemy.investigate) {
         const dx = enemy.investigate.x - enemy.x, dy = enemy.investigate.y - enemy.y, len = Math.hypot(dx, dy) || 1;
-        if (len > 4) {
-          moveWithCollision(enemy, dx / len, dy / len, CONFIG.enemyChaseSpeed);
-          enemy.direction = Math.atan2(dy, dx);
-        } else {
+        if (len > 4) { moveWithCollision(enemy, dx / len, dy / len, CONFIG.enemyChaseSpeed); enemy.direction = Math.atan2(dy, dx); }
+        else {
           const toPx = player.x - enemy.x, toPy = player.y - enemy.y;
           if (Math.hypot(toPx, toPy) < CONFIG.enemyVisionRange) enemy.direction = Math.atan2(toPy, toPx);
           else enemy.direction += (Math.random() - 0.5) * 0.15;
@@ -228,16 +268,14 @@
           if (enemy.investigate.timer % 25 === 0) playTone(280 + Math.random()*40, 0.04, 'sine', 0.02);
           if (enemy.investigate.timer <= 0) enemy.investigate = null;
         }
-        if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.radius + enemy.radius - 2) { gameOver(false); return; }
+        if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.radius + enemy.radius - 2) { playerDeath(); return; }
         return;
       }
 
-      // АНТИ-ЗАСТРЕВАНИЕ
       const moved = Math.hypot(enemy.x - enemy.lastX, enemy.y - enemy.lastY);
       if (moved < 0.3) { enemy.stuckFrames++; if (enemy.stuckFrames > 60) { enemy.patrol.angle += Math.PI / 2 + (Math.random() - 0.5) * 0.5; enemy.stuckFrames = 0; } }
       else enemy.stuckFrames = 0;
 
-      // ПАТРУЛИРОВАНИЕ
       enemy.patrol.angle += 0.006;
       const tx = enemy.patrol.x + Math.cos(enemy.patrol.angle) * enemy.patrol.radius;
       const ty = enemy.patrol.y + Math.sin(enemy.patrol.angle) * enemy.patrol.radius;
@@ -245,14 +283,11 @@
       if (len > 3) { moveWithCollision(enemy, dx / len, dy / len, CONFIG.enemyPatrolSpeed); enemy.direction = Math.atan2(dy, dx); }
       else if (Math.random() < 0.01) enemy.patrol.angle += (Math.random() - 0.5) * 1.5;
 
-      // Поворот к игроку если близко
       const toPx = player.x - enemy.x, toPy = player.y - enemy.y;
       if (Math.hypot(toPx, toPy) < CONFIG.enemyVisionRange * 0.7) enemy.direction = Math.atan2(toPy, toPx);
 
-      // ПРОВЕРКИ СМЕРТИ
-      if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.radius + enemy.radius - 2) { gameOver(false); return; }
-      if (isInEnemyVision()) { gameOver(false); return; }
-
+      if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.radius + enemy.radius - 2) { playerDeath(); return; }
+      if (isInEnemyVision()) { playerDeath(); return; }
       if (state.silenceTimer > CONFIG.silenceThreshold && enemy.investigate) enemy.investigate = null;
     }
 
@@ -269,8 +304,10 @@
             holdFill.style.width = (card.holdProgress / CONFIG.cardHoldTime * 100) + '%'; 
             if (card.holdProgress % 8 === 0) playTone(420, 0.02, 'sine', 0.015);
             if (card.holdProgress >= CONFIG.cardHoldTime) { 
-              card.collected = true; state.cardsFound++; state.holdingCard = null; holdBar.style.display = 'none'; playCardCollect(); document.getElementById('cards').textContent = state.cardsFound; 
-              if (state.cardsFound === 3) { exit.active = true; showMessage("✓ ДВЕРЬ ОТКРЫТА", 200); playTone(1100, 0.15, 'sine', 0.1); }
+              card.collected = true; state.cardsFound++; state.holdingCard = null; holdBar.style.display = 'none'; playCardCollect(); 
+              document.getElementById('cards').textContent = state.cardsFound; 
+              const level = LEVELS[state.currentLevel];
+              if (state.cardsFound === level.cards) { exit.active = true; showMessage("✓ ДВЕРЬ ОТКРЫТА", 200); playTone(1100, 0.15, 'sine', 0.1); }
             }
           } else { if (!player.breathHold) card.holdProgress = Math.max(0, card.holdProgress - 2); holdFill.style.width = (card.holdProgress / CONFIG.cardHoldTime * 100) + '%'; if (card.holdProgress === 0) holdBar.style.display = 'none'; }
         } else { if (card.holdProgress > 0) { card.holdProgress = Math.max(0, card.holdProgress - 3); holdFill.style.width = (card.holdProgress / CONFIG.cardHoldTime * 100) + '%'; if (card.holdProgress === 0) holdBar.style.display = 'none'; } if (state.holdingCard === card) state.holdingCard = null; }
@@ -280,7 +317,8 @@
     // ==================== ТУМАН ВОЙНЫ ====================
     function smoothstep(e0, e1, x) { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); }
     function updateFog(panic) {
-      const targetR = state.echoTimer > 0 ? CONFIG.echoRadius : CONFIG.fogBaseRadius;
+      const level = LEVELS[state.currentLevel];
+      const targetR = state.echoTimer > 0 ? level.echoRadius : CONFIG.fogBaseRadius;
       state.currentFogRadius += (targetR - state.currentFogRadius) * 0.15;
       const margin = state.currentFogRadius + CONFIG.fogFadeMargin + 10;
       const bx = player.x - margin, by = player.y - margin, br = player.x + margin, bt = player.y + margin;
@@ -306,6 +344,32 @@
       vignette.style.opacity = 0.5 + pan * 0.35;
       if (pan > 0.4 && Math.random() < 0.008 * pan) { ctx.fillStyle = `rgba(0,255,0,${0.05 + pan * 0.1})`; ctx.fillRect(Math.random() * CONFIG.width, Math.random() * CONFIG.height, CONFIG.width * 0.3, 1 + Math.random() * 3); }
       return pan;
+    }
+
+    // ==================== СМЕРТЬ ИГРОКА ====================
+    function playerDeath() {
+      if (state.transitioning) return;
+      state.lives--;
+      animateHeartLoss();
+      updateLivesUI();
+      
+      if (state.lives <= 0) {
+        state.running = false; state.gameOver = true; state.win = false;
+        playLose();
+        document.getElementById('death-message').textContent = 'Все жизни потеряны. Она победила.';
+        setTimeout(() => {
+          ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
+          ctx.fillStyle = '#f00'; ctx.font = 'bold 24px monospace'; ctx.textAlign = 'center';
+          ctx.fillText('КОНЕЦ', CONFIG.width / 2, CONFIG.height / 2);
+          ctx.font = '14px monospace'; ctx.fillStyle = '#0f0';
+          ctx.fillText('нажми для рестарта', CONFIG.width / 2, CONFIG.height / 2 + 30);
+        }, 800);
+        document.getElementById('lose-screen').classList.remove('hidden');
+      } else {
+        playLose();
+        showMessage(`♥ Осталось жизней: ${state.lives}`, 1500);
+        setTimeout(() => { generateLevel(); state.running = true; state.gameOver = false; }, 1000);
+      }
     }
 
     // ==================== ОТРИСОВКА ====================
@@ -345,20 +409,67 @@
       if ((keys[' '] || keys['Spacebar']) && !player.breathHold && state.echoTimer === 0) triggerEcho();
       if (state.echoTimer > 0) state.echoTimer--;
       updateCards(); updateEnemy(); const pan = updateAtmosphere(); updateFog(pan);
-      if (exit.active && player.x > exit.x && player.x < exit.x + exit.w && player.y > exit.y && player.y < exit.y + exit.h) gameOver(true);
-      document.getElementById('silence').textContent = Math.floor(state.silenceTimer / 60);
+      if (exit.active && player.x > exit.x && player.x < exit.x + exit.w && player.y > exit.y && player.y < exit.y + exit.h) levelComplete();
     }
     function triggerEcho() { playEcho(); state.echoTimer = CONFIG.echoDuration; enemy.investigate = { x: player.x + (Math.random() - 0.5) * 20, y: player.y + (Math.random() - 0.5) * 20, timer: 170 }; enemy.alertPulse = 1; playAlert(); showMessage("ОНА УСЛЫШАЛА...", 100); }
+    
+    // ==================== ПЕРЕХОД МЕЖДУ УРОВНЯМИ ====================
+    function levelComplete() {
+      if (state.transitioning) return;
+      state.transitioning = true;
+      state.running = false;
+      playLevelUp();
+      
+      if (state.currentLevel < LEVELS.length - 1) {
+        state.currentLevel++;
+        setTimeout(() => {
+          const level = LEVELS[state.currentLevel];
+          document.getElementById('level-title').textContent = `УРОВЕНЬ ${state.currentLevel + 1}`;
+          document.getElementById('level-desc').textContent = level.desc;
+          document.getElementById('level-screen').classList.remove('hidden');
+        }, 500);
+      } else {
+        setTimeout(() => { playWin(); document.getElementById('win-screen').classList.remove('hidden'); }, 500);
+      }
+    }
+
     function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
     function showMessage(t, d) { const e = document.getElementById('message'); e.textContent = t; e.classList.add('show'); setTimeout(() => e.classList.remove('show'), d); }
-    function gameOver(win) { state.running = false; state.gameOver = true; state.win = win; if (win) { playWin(); document.getElementById('win-screen').classList.remove('hidden'); } else { playLose(); setTimeout(() => { ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillRect(0, 0, CONFIG.width, CONFIG.height); ctx.fillStyle = '#f00'; ctx.font = 'bold 24px monospace'; ctx.textAlign = 'center'; ctx.fillText('ОНА ТЕБЯ НАШЛА', CONFIG.width / 2, CONFIG.height / 2); ctx.font = '14px monospace'; ctx.fillStyle = '#0f0'; ctx.fillText('нажми для перезапуска', CONFIG.width / 2, CONFIG.height / 2 + 30); }, 800); document.getElementById('lose-screen').classList.remove('hidden'); } }
-    function startGame() { initAudio(); generateLevel(); state.running = true; state.gameOver = false; state.win = false; document.getElementById('start-screen').classList.add('hidden'); document.getElementById('win-screen').classList.add('hidden'); document.getElementById('lose-screen').classList.add('hidden'); pressedKeys = {}; holdBar.style.display = 'none'; if (audioCtx) setTimeout(playAmbient, 2000); }
+    
+    function startGame() { 
+      initAudio(); state.currentLevel = 0; state.lives = CONFIG.maxLives; state.transitioning = false;
+      updateLivesUI(); generateLevel(); state.running = true; state.gameOver = false; state.win = false; 
+      document.getElementById('start-screen').classList.add('hidden'); 
+      document.getElementById('win-screen').classList.add('hidden'); 
+      document.getElementById('lose-screen').classList.add('hidden');
+      document.getElementById('level-screen').classList.add('hidden');
+      pressedKeys = {}; holdBar.style.display = 'none'; 
+      if (audioCtx) setTimeout(playAmbient, 2000); 
+    }
+
+    function restartLevel() {
+      state.transitioning = false;
+      generateLevel();
+      state.running = true;
+      state.gameOver = false;
+      pressedKeys = {};
+      holdBar.style.display = 'none';
+    }
 
     // ==================== ВВОД ====================
-    let pressedKeys = {}; window.addEventListener('keydown', e => { pressedKeys[e.key] = true; if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault(); if (state.gameOver) startGame(); }); window.addEventListener('keyup', e => { pressedKeys[e.key] = false; });
-    document.getElementById('start-btn').addEventListener('click', startGame); document.getElementById('restart-win').addEventListener('click', startGame); document.getElementById('restart-lose').addEventListener('click', startGame); canvas.addEventListener('click', () => { if (state.gameOver) startGame(); });
-    function resizeCanvas() { const s = Math.min(window.innerWidth / CONFIG.width, window.innerHeight / CONFIG.height) * 0.98; canvas.style.transform = `scale(${s})`; canvas.style.transformOrigin = 'center'; } window.addEventListener('resize', resizeCanvas); resizeCanvas();
+    let pressedKeys = {}; 
+    window.addEventListener('keydown', e => { pressedKeys[e.key] = true; if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault(); if (state.gameOver && state.lives <= 0) startGame(); }); 
+    window.addEventListener('keyup', e => { pressedKeys[e.key] = false; });
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('restart-win').addEventListener('click', startGame);
+    document.getElementById('restart-lose').addEventListener('click', startGame);
+    document.getElementById('level-next-btn').addEventListener('click', () => { document.getElementById('level-screen').classList.add('hidden'); restartLevel(); });
+    canvas.addEventListener('click', () => { if (state.gameOver && state.lives <= 0) startGame(); });
     
+    function resizeCanvas() { const s = Math.min(window.innerWidth / CONFIG.width, window.innerHeight / CONFIG.height) * 0.98; canvas.style.transform = `scale(${s})`; canvas.style.transformOrigin = 'center'; } 
+    window.addEventListener('resize', resizeCanvas); resizeCanvas();
+    
+    updateLivesUI();
     loadAllSVGs().then(() => gameLoop()).catch(() => gameLoop());
   </script>
 </body>
