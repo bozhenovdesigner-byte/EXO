@@ -26,6 +26,15 @@
     .hold-bar-fill { height: 100%; width: 0%; background: #0f0; transition: width 0.05s linear; }
     @keyframes heartBreak { 0% { transform: scale(1); } 50% { transform: scale(1.5); color: #f00; } 100% { transform: scale(1); } }
     .heart-lost { animation: heartBreak 0.4s ease-out; }
+    /* 🔥 СТИЛИ ДЛЯ GIF */
+    .intro-gif {
+      max-width: 100%;
+      height: auto;
+      border: 1px solid #0f0;
+      box-shadow: 0 0 15px rgba(0,255,0,0.3);
+      margin: 15px 0;
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -45,6 +54,10 @@
     <p>SHIFT — задержка дыхания (не двигаться)</p>
     <p style="margin-top:12px">🗝️ Найди все карты → выйди через дверь</p>
     <p class="warning">⚠️ ОНА слышит каждое эхо...<br>и видит тебя, если подойдёшь близко</p>
+    
+    <!-- 🔥 МЕСТО ДЛЯ GIF (800×600) -->
+    <img src="intro.gif" alt="Intro" class="intro-gif" onerror="this.style.display='none'">
+    
     <p style="font-size:11px; opacity:0.6; margin-top:8px" id="svg-status">Загрузка...</p>
     <button id="start-btn">НАЧАТЬ</button>
   </div>
@@ -94,7 +107,7 @@
       gameOver: false, win: false, heartbeatTimer: 0, screenPulse: 0,
       holdingCard: null, svgLoaded: false, currentFogRadius: 120,
       currentLevel: 0, lives: 3, transitioning: false,
-      currentEchoRadius: 90
+      currentEchoRadius: 90, isDead: false  // 🔥 НОВЫЙ ФЛАГ
     };
 
     const svgAssets = { map: null, player: null, enemy: null, card: null };
@@ -221,6 +234,7 @@
       enemy.investigate = null; enemy.alertPulse = 0; enemy.stuckFrames = 0; enemy.lastX = enemy.x; enemy.lastY = enemy.y;
       state.cardsFound = 0; state.silenceTimer = 0; state.echoTimer = 0; state.holdingCard = null; state.currentFogRadius = CONFIG.fogBaseRadius;
       state.currentEchoRadius = level.echoRadius;
+      state.isDead = false;  // 🔥 СБРОС ФЛАГА СМЕРТИ
       document.getElementById('cards').textContent = '0';
       updateLevelUI();
       initFog();
@@ -242,6 +256,8 @@
     }
 
     function updateEnemy() {
+      if (state.isDead) return;  // 🔥 ЕСЛИ МЕРТВ — НЕ ОБНОВЛЯТЬ ВРАГА
+      
       if (enemy.alertPulse > 0) { enemy.alertPulse *= 0.94; if (enemy.alertPulse < 0.02) enemy.alertPulse = 0; }
       enemy.lastX = enemy.x; enemy.lastY = enemy.y;
 
@@ -256,7 +272,7 @@
           if (enemy.investigate.timer % 25 === 0) playTone(280 + Math.random()*40, 0.04, 'sine', 0.02);
           if (enemy.investigate.timer <= 0) enemy.investigate = null;
         }
-        if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.radius + enemy.radius - 2) { playerDeath(); return; }
+        if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.radius + enemy.radius - 2) { handleDeath(); return; }
         return;
       }
 
@@ -274,8 +290,8 @@
       const toPx = player.x - enemy.x, toPy = player.y - enemy.y;
       if (Math.hypot(toPx, toPy) < CONFIG.enemyVisionRange * 0.7) enemy.direction = Math.atan2(toPy, toPx);
 
-      if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.radius + enemy.radius - 2) { playerDeath(); return; }
-      if (isInEnemyVision()) { playerDeath(); return; }
+      if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.radius + enemy.radius - 2) { handleDeath(); return; }
+      if (isInEnemyVision()) { handleDeath(); return; }
       if (state.silenceTimer > CONFIG.silenceThreshold && enemy.investigate) enemy.investigate = null;
     }
 
@@ -330,8 +346,11 @@
       return pan;
     }
 
-    function playerDeath() {
-      if (state.transitioning) return;
+    // 🔥 НОВАЯ ФУНКЦИЯ ОБРАБОТКИ СМЕРТИ
+    function handleDeath() {
+      if (state.isDead) return;  // Уже мертв
+      state.isDead = true;
+      
       state.lives--;
       animateHeartLoss();
       updateLivesUI();
@@ -351,7 +370,12 @@
       } else {
         playLose();
         showMessage(`♥ Осталось жизней: ${state.lives}`, 1500);
-        setTimeout(() => { generateLevel(); state.running = true; state.gameOver = false; }, 1000);
+        setTimeout(() => { 
+          state.isDead = false;
+          generateLevel(); 
+          state.running = true; 
+          state.gameOver = false; 
+        }, 1000);
       }
     }
 
@@ -403,7 +427,7 @@
     function triggerEcho() { playEcho(); state.echoTimer = CONFIG.echoDuration; enemy.investigate = { x: player.x + (Math.random() - 0.5) * 20, y: player.y + (Math.random() - 0.5) * 20, timer: 170 }; enemy.alertPulse = 1; playAlert(); showMessage("ОНА УСЛЫШАЛА...", 100); }
     
     function levelComplete() {
-      if (state.transitioning) return;
+      if (state.transitioning || state.isDead) return;
       state.transitioning = true;
       state.running = false;
       playLevelUp();
@@ -425,7 +449,7 @@
     function showMessage(t, d) { const e = document.getElementById('message'); e.textContent = t; e.classList.add('show'); setTimeout(() => e.classList.remove('show'), d); }
     
     function startGame() { 
-      initAudio(); state.currentLevel = 0; state.lives = CONFIG.maxLives; state.transitioning = false;
+      initAudio(); state.currentLevel = 0; state.lives = CONFIG.maxLives; state.transitioning = false; state.isDead = false;
       updateLivesUI(); generateLevel(); state.running = true; state.gameOver = false; state.win = false; 
       document.getElementById('start-screen').classList.add('hidden'); 
       document.getElementById('win-screen').classList.add('hidden'); 
@@ -437,6 +461,7 @@
 
     function restartLevel() {
       state.transitioning = false;
+      state.isDead = false;
       generateLevel();
       state.running = true;
       state.gameOver = false;
