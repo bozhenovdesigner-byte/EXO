@@ -7,28 +7,47 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #000; color: #0f0; font-family: 'Courier New', monospace; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; user-select: none; }
-    canvas { image-rendering: pixelated; box-shadow: 0 0 20px #0f0, inset 0 0 30px rgba(0,255,0,0.1); border: 2px solid #0f0; max-width: 100vw; max-height: 100vh; }
-    #ui { position: absolute; top: 10px; left: 10px; font-size: 13px; text-shadow: 0 0 5px #0f0; pointer-events: none; line-height: 1.4; z-index: 2; }
-    #lives { position: absolute; top: 10px; right: 10px; font-size: 20px; pointer-events: none; text-shadow: 0 0 8px #f00; letter-spacing: 4px; transition: color 0.3s; z-index: 2; }
-    #level-indicator { position: absolute; top: 38px; right: 10px; font-size: 11px; color: #6f6; pointer-events: none; text-shadow: 0 0 3px #0f0; z-index: 2; }
-    #message { position: absolute; bottom: 30px; width: 100%; text-align: center; font-size: 15px; color: #f66; text-shadow: 0 0 10px #f00; opacity: 0; transition: opacity 0.2s; pointer-events: none; font-weight: bold; letter-spacing: 1px; z-index: 2; }
-    #message.show { opacity: 1; }
     
-    /* 🔥 ФОНОВЫЙ GIF НА ВЕСЬ ЭКРАН */
+    /* 🔥 КОНТЕЙНЕР ДЛЯ GIF + CANVAS (800×600) */
+    #game-container {
+      position: relative;
+      width: 800px;
+      height: 600px;
+    }
+    
+    /* 🔥 ФОНОВЫЙ GIF (размер canvas) */
     #bg-gif {
-      position: fixed;
+      position: absolute;
       top: 0; left: 0;
-      width: 100vw; height: 100vh;
+      width: 800px;
+      height: 600px;
       object-fit: cover;
       z-index: 0;
-      opacity: 0.35;
+      opacity: 0.5;
       filter: contrast(1.2) brightness(0.6) saturate(0.4);
-      pointer-events: none;
+      border: 2px solid #0f0;
+      box-shadow: 0 0 20px #0f0, inset 0 0 30px rgba(0,255,0,0.1);
     }
+    
+    canvas {
+      position: absolute;
+      top: 0; left: 0;
+      image-rendering: pixelated;
+      z-index: 1;
+      opacity: 0;  /* Скрыт пока игра не начата */
+      transition: opacity 0.3s;
+    }
+    canvas.visible { opacity: 1; }
+    
+    #ui { position: absolute; top: 10px; left: 10px; font-size: 13px; text-shadow: 0 0 5px #0f0; pointer-events: none; line-height: 1.4; z-index: 4; }
+    #lives { position: absolute; top: 10px; right: 10px; font-size: 20px; pointer-events: none; text-shadow: 0 0 8px #f00; letter-spacing: 4px; transition: color 0.3s; z-index: 4; }
+    #level-indicator { position: absolute; top: 38px; right: 10px; font-size: 11px; color: #6f6; pointer-events: none; text-shadow: 0 0 3px #0f0; z-index: 4; }
+    #message { position: absolute; bottom: 30px; width: 100%; text-align: center; font-size: 15px; color: #f66; text-shadow: 0 0 10px #f00; opacity: 0; transition: opacity 0.2s; pointer-events: none; font-weight: bold; letter-spacing: 1px; z-index: 4; }
+    #message.show { opacity: 1; }
     
     #start-screen, #win-screen, #lose-screen, #level-screen { 
       position: absolute; 
-      background: rgba(0,0,0,0.85); 
+      background: rgba(0,0,0,0.8); 
       color: #0f0; 
       padding: 25px 30px; 
       text-align: center; 
@@ -36,6 +55,9 @@
       max-width: 480px; 
       z-index: 10; 
       box-shadow: 0 0 40px rgba(0,255,0,0.3);
+      /* Центрирование */
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
     }
     #start-screen h1, #win-screen h1, #lose-screen h1, #level-screen h1 { margin-bottom: 15px; font-size: 28px; letter-spacing: 3px; }
     #start-screen p, #win-screen p, #lose-screen p, #level-screen p { margin: 8px 0; font-size: 13px; opacity: 0.9; }
@@ -44,8 +66,22 @@
     #start-screen button:hover, #win-screen button:hover, #lose-screen button:hover, #level-screen button:hover { background: #0c0; box-shadow: 0 0 15px #0f0; transform: scale(1.03); }
     .hidden { display: none !important; }
     
-    body::after { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.12), rgba(0,0,0,0.12) 1px, transparent 1px, transparent 2px); pointer-events: none; z-index: 1; opacity: 0.7; }
-    #vignette { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.85) 100%); opacity: 0.6; transition: opacity 0.3s; }
+    /* CRT scanlines поверх всего */
+    #scanlines {
+      position: absolute;
+      top: 0; left: 0;
+      width: 800px; height: 600px;
+      background: repeating-linear-gradient(0deg, rgba(0,0,0,0.12), rgba(0,0,0,0.12) 1px, transparent 1px, transparent 2px);
+      pointer-events: none;
+      z-index: 3;
+      opacity: 0.7;
+    }
+    #vignette { 
+      position: absolute; top: 0; left: 0; width: 800px; height: 600px; 
+      pointer-events: none; z-index: 2; 
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.85) 100%); 
+      opacity: 0.6; transition: opacity 0.3s; 
+    }
     .hold-bar { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); width: 200px; height: 6px; background: rgba(0,50,0,0.8); border: 1px solid #0f0; display: none; z-index: 8; }
     .hold-bar-fill { height: 100%; width: 0%; background: #0f0; transition: width 0.05s linear; }
     @keyframes heartBreak { 0% { transform: scale(1); } 50% { transform: scale(1.5); color: #f00; } 100% { transform: scale(1); } }
@@ -53,46 +89,50 @@
   </style>
 </head>
 <body>
-  <!-- 🔥 ФОНОВЫЙ GIF НА ВЕСЬ ЭКРАН (без onerror) -->
-  <img id="bg-gif" src="intro.gif" alt="">
-  
-  <canvas id="game" width="800" height="600"></canvas>
-  <div id="vignette"></div>
-  <div class="hold-bar"><div class="hold-bar-fill" id="hold-fill"></div></div>
-  
-  <div id="ui">🗝️ Карты: <span id="cards">0</span>/<span id="cards-total">3</span></div>
-  <div id="lives">♥♥♥</div>
-  <div id="level-indicator">УРОВЕНЬ 1</div>
-  <div id="message"></div>
+  <!-- 🔥 КОНТЕЙНЕР 800×600 -->
+  <div id="game-container">
+    <!-- GIF на фоне -->
+    <img id="bg-gif" src="intro.gif" alt="">
+    
+    <canvas id="game" width="800" height="600"></canvas>
+    <div id="scanlines"></div>
+    <div id="vignette"></div>
+    <div class="hold-bar"><div class="hold-bar-fill" id="hold-fill"></div></div>
+    
+    <div id="ui">🗝️ Карты: <span id="cards">0</span>/<span id="cards-total">3</span></div>
+    <div id="lives">♥♥♥</div>
+    <div id="level-indicator">УРОВЕНЬ 1</div>
+    <div id="message"></div>
 
-  <div id="start-screen">
-    <h1>ЭХО</h1>
-    <p>WASD / стрелки — движение</p>
-    <p>SPACE — эхо (видишь окружение)</p>
-    <p>SHIFT — задержка дыхания (не двигаться)</p>
-    <p style="margin-top:12px">🗝️ Найди все карты → выйди через дверь</p>
-    <p class="warning">⚠️ ОНА слышит каждое эхо...<br>и видит тебя, если подойдёшь близко</p>
-    <p style="font-size:11px; opacity:0.6; margin-top:8px" id="svg-status">Загрузка...</p>
-    <button id="start-btn">НАЧАТЬ</button>
-  </div>
+    <div id="start-screen">
+      <h1>ЭХО</h1>
+      <p>WASD / стрелки — движение</p>
+      <p>SPACE — эхо (видишь окружение)</p>
+      <p>SHIFT — задержка дыхания (не двигаться)</p>
+      <p style="margin-top:12px">🗝️ Найди все карты → выйди через дверь</p>
+      <p class="warning">⚠️ ОНА слышит каждое эхо...<br>и видит тебя, если подойдёшь близко</p>
+      <p style="font-size:11px; opacity:0.6; margin-top:8px" id="svg-status">Загрузка...</p>
+      <button id="start-btn">НАЧАТЬ</button>
+    </div>
 
-  <div id="level-screen" class="hidden">
-    <h1 id="level-title">УРОВЕНЬ 2</h1>
-    <p id="level-desc">4 карты • ОНА быстрее</p>
-    <button id="level-next-btn">ПРОДОЛЖИТЬ</button>
-  </div>
+    <div id="level-screen" class="hidden">
+      <h1 id="level-title">УРОВЕНЬ 2</h1>
+      <p id="level-desc">4 карты • ОНА быстрее</p>
+      <button id="level-next-btn">ПРОДОЛЖИТЬ</button>
+    </div>
 
-  <div id="win-screen" class="hidden">
-    <h1>✓ ТЫ ВЫШЕЛ</h1>
-    <p>Ты обманул Её... на этот раз.</p>
-    <p style="font-size:11px; opacity:0.7; margin-top:10px">Но эхо остаётся в стенах.</p>
-    <button id="restart-win">НАЧАТЬ ЗАНОВО</button>
-  </div>
+    <div id="win-screen" class="hidden">
+      <h1>✓ ТЫ ВЫШЕЛ</h1>
+      <p>Ты обманул Её... на этот раз.</p>
+      <p style="font-size:11px; opacity:0.7; margin-top:10px">Но эхо остаётся в стенах.</p>
+      <button id="restart-win">НАЧАТЬ ЗАНОВО</button>
+    </div>
 
-  <div id="lose-screen" class="hidden">
-    <h1 style="color:#f00">✗ ОНА ТЕБЯ НАШЛА</h1>
-    <p id="death-message">Слишком громко. Слишком близко.</p>
-    <button id="restart-lose">ПОПРОБОВАТЬ СНОВА</button>
+    <div id="lose-screen" class="hidden">
+      <h1 style="color:#f00">✗ ОНА ТЕБЯ НАШЛА</h1>
+      <p id="death-message">Слишком громко. Слишком близко.</p>
+      <button id="restart-lose">ПОПРОБОВАТЬ СНОВА</button>
+    </div>
   </div>
 
   <script async src="https://vibej.am/2026/widget.js"></script>
@@ -162,6 +202,7 @@
       return true;
     }
 
+    const container = document.getElementById('game-container');
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     const vignette = document.getElementById('vignette');
@@ -468,6 +509,7 @@
       document.getElementById('lose-screen').classList.add('hidden');
       document.getElementById('level-screen').classList.add('hidden');
       document.getElementById('bg-gif').style.display = 'none';
+      canvas.classList.add('visible');  // Показываем canvas
       pressedKeys = {}; holdBar.style.display = 'none'; 
       if (audioCtx) setTimeout(playAmbient, 2000); 
     }
@@ -491,7 +533,11 @@
     document.getElementById('level-next-btn').addEventListener('click', () => { document.getElementById('level-screen').classList.add('hidden'); restartLevel(); });
     canvas.addEventListener('click', () => { if (state.gameOver && state.lives <= 0) startGame(); });
     
-    function resizeCanvas() { const s = Math.min(window.innerWidth / CONFIG.width, window.innerHeight / CONFIG.height) * 0.98; canvas.style.transform = `scale(${s})`; canvas.style.transformOrigin = 'center'; } 
+    function resizeCanvas() { 
+      const s = Math.min(window.innerWidth / CONFIG.width, window.innerHeight / CONFIG.height) * 0.98; 
+      container.style.transform = `scale(${s})`; 
+      container.style.transformOrigin = 'center'; 
+    } 
     window.addEventListener('resize', resizeCanvas); resizeCanvas();
     
     updateLivesUI();
