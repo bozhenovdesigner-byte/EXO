@@ -6,15 +6,8 @@
   <title>ЭХО • Хоррор</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: #000; color: #0f0; font-family: 'Courier New', monospace;
-      overflow: hidden; display: flex; justify-content: center; align-items: center;
-      height: 100vh; user-select: none;
-    }
-    canvas {
-      image-rendering: pixelated; box-shadow: 0 0 20px #0f0, inset 0 0 30px rgba(0,255,0,0.1);
-      border: 2px solid #0f0; max-width: 100vw; max-height: 100vh;
-    }
+    body { background: #000; color: #0f0; font-family: 'Courier New', monospace; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; user-select: none; }
+    canvas { image-rendering: pixelated; box-shadow: 0 0 20px #0f0, inset 0 0 30px rgba(0,255,0,0.1); border: 2px solid #0f0; max-width: 100vw; max-height: 100vh; }
     #ui { position: absolute; top: 10px; left: 10px; font-size: 13px; text-shadow: 0 0 5px #0f0; pointer-events: none; line-height: 1.4; }
     #message { position: absolute; bottom: 30px; width: 100%; text-align: center; font-size: 15px; color: #f66; text-shadow: 0 0 10px #f00; opacity: 0; transition: opacity 0.2s; pointer-events: none; font-weight: bold; letter-spacing: 1px; }
     #message.show { opacity: 1; }
@@ -53,7 +46,7 @@
     <p>SHIFT — задержка дыхания (не двигаться)</p>
     <p style="margin-top:12px">🗝️ Найди 3 карты → выйди через дверь</p>
     <p class="warning">⚠️ ОНА слышит каждое эхо...<br>и видит тебя, если подойдёшь близко</p>
-    <p style="font-size:11px; opacity:0.6; margin-top:8px" id="svg-status">Инициализация...</p>
+    <p style="font-size:11px; opacity:0.6; margin-top:8px" id="svg-status">Загрузка...</p>
     <button id="start-btn">НАЧАТЬ</button>
   </div>
 
@@ -93,79 +86,45 @@
       holdingCard: null, svgLoaded: false, currentFogRadius: 120
     };
 
-    // ==================== ЗАГРУЗКА SVG (безопасная для file://) ====================
+    // ==================== ЗАГРУЗКА SVG (устойчивая) ====================
     const svgAssets = { map: null, player: null, enemy: null, card: null };
     const svgPaths = { player: [], enemy: [], card: [] };
     
     async function loadSVG(src) {
-      // Проверка: если файл:// и браузер блокирует fetch — сразу возвращаем null
-      if (window.location.protocol === 'file:') {
-        console.log(`[SVG] Пропущено ${src}: file:// не поддерживает fetch без CORS`);
-        return null;
-      }
       try {
-        const r = await fetch(src);
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 2000);
+        const r = await fetch(src, { signal: ctrl.signal });
+        clearTimeout(tid);
         if (!r.ok) return null;
-        const text = await r.text();
-        const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
-        if (doc.querySelector('parsererror')) return null;
-        return doc;
-      } catch (e) {
-        console.log(`[SVG] Ошибка загрузки ${src}:`, e.message);
-        return null;
-      }
+        const doc = new DOMParser().parseFromString(await r.text(), 'image/svg+xml');
+        return doc.querySelector('parsererror') ? null : doc;
+      } catch { return null; }
     }
     
     function extractPaths(doc, cls) {
-      const paths = [];
-      doc.querySelectorAll(`.${cls}`).forEach(el => {
-        const t = el.tagName.toLowerCase();
-        const p = {};
-        if (t === 'rect') {
-          p.type = 'rect';
-          p.x = +el.getAttribute('x') || 0;
-          p.y = +el.getAttribute('y') || 0;
-          p.w = +el.getAttribute('width') || 0;
-          p.h = +el.getAttribute('height') || 0;
-        } else if (t === 'circle') {
-          p.type = 'circle';
-          p.cx = +el.getAttribute('cx') || 0;
-          p.cy = +el.getAttribute('cy') || 0;
-          p.r = +el.getAttribute('r') || 0;
-        }
-        p.fill = el.getAttribute('fill');
-        p.stroke = el.getAttribute('stroke');
-        paths.push(p);
+      if (!doc) return [];
+      return Array.from(doc.querySelectorAll(`.${cls}`)).map(el => {
+        const t = el.tagName.toLowerCase(), p = {};
+        if (t === 'rect') { p.type='rect'; p.x=+el.getAttribute('x')||0; p.y=+el.getAttribute('y')||0; p.w=+el.getAttribute('width')||0; p.h=+el.getAttribute('height')||0; }
+        else if (t === 'circle') { p.type='circle'; p.cx=+el.getAttribute('cx')||0; p.cy=+el.getAttribute('cy')||0; p.r=+el.getAttribute('r')||0; }
+        p.fill = el.getAttribute('fill'); p.stroke = el.getAttribute('stroke'); return p;
       });
-      return paths;
     }
     
     async function loadAllSVGs() {
       const status = document.getElementById('svg-status');
-      status.textContent = '🔍 Поиск ресурсов...';
-      
-      const [m, p, e, c] = await Promise.all([
-        loadSVG('map.svg'),
-        loadSVG('player.svg'),
-        loadSVG('enemy.svg'),
-        loadSVG('card.svg')
-      ]);
-      
+      status.textContent = '🔍 Проверка ресурсов...';
+      const [m, p, e, c] = await Promise.all([loadSVG('map.svg').catch(()=>null), loadSVG('player.svg').catch(()=>null), loadSVG('enemy.svg').catch(()=>null), loadSVG('card.svg').catch(()=>null)]);
       let loaded = [];
       if (m) { svgAssets.map = m; loaded.push('карта'); }
       if (p) { svgAssets.player = p; svgPaths.player = extractPaths(p, 'player'); loaded.push('игрок'); }
       if (e) { svgAssets.enemy = e; svgPaths.enemy = extractPaths(e, 'enemy'); loaded.push('враг'); }
       if (c) { svgAssets.card = c; svgPaths.card = extractPaths(c, 'card'); loaded.push('артефакт'); }
-      
       state.svgLoaded = loaded.length > 0;
-      
-      if (loaded.length > 0) {
-        status.textContent = `✅ Загружено: ${loaded.join(', ')}`;
-      } else if (window.location.protocol === 'file:') {
-        status.textContent = '📁 file://: SVG отключены. Используй локальный сервер для загрузки ассетов.';
-      } else {
-        status.textContent = '⚙️ SVG не найдены → используется процедурная генерация';
-      }
+      status.textContent = loaded.length > 0 ? `✅ Загружено: ${loaded.join(', ')}` : '⚙️ SVG не найдены → используется процедурная генерация';
+      status.style.color = loaded.length > 0 ? '#0f0' : '#6f6';
+      return true;
     }
 
     // ==================== ОБЪЕКТЫ ====================
@@ -176,11 +135,7 @@
     const holdFill = document.getElementById('hold-fill');
     
     const player = { x: 60, y: 300, radius: 10, color: '#0f0', breathHold: false };
-    const enemy = { 
-      x: 740, y: 300, radius: 13, color: '#f44', direction: Math.PI, 
-      patrol: { x: 740, y: 300, radius: CONFIG.enemyPatrolRadius, angle: 0 }, 
-      investigate: null, alertPulse: 0, stuckFrames: 0, lastX: 0, lastY: 0 
-    };
+    const enemy = { x: 740, y: 300, radius: 13, color: '#f44', direction: Math.PI, patrol: { x: 740, y: 300, radius: CONFIG.enemyPatrolRadius, angle: 0 }, investigate: null, alertPulse: 0, stuckFrames: 0, lastX: 0, lastY: 0 };
     let cards = [];
     const exit = { x: 755, y: 275, w: 25, h: 50, active: false };
     let walls = [];
@@ -188,55 +143,21 @@
 
     // ==================== АУДИО ====================
     let audioCtx;
-    function initAudio() { 
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
-      if (audioCtx.state === 'suspended') audioCtx.resume(); 
-    }
-    function playTone(f, d, t = 'sine', v = 0.08, dl = 0) {
-      if (!audioCtx) return;
-      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-      o.type = t; o.frequency.value = f;
-      g.gain.setValueAtTime(0, audioCtx.currentTime + dl);
-      g.gain.linearRampToValueAtTime(v, audioCtx.currentTime + dl + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dl + d);
-      o.connect(g); g.connect(audioCtx.destination);
-      o.start(audioCtx.currentTime + dl); o.stop(audioCtx.currentTime + dl + d + 0.05);
-    }
+    function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
+    function playTone(f, d, t = 'sine', v = 0.08, dl = 0) { if (!audioCtx) return; const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = t; o.frequency.value = f; g.gain.setValueAtTime(0, audioCtx.currentTime + dl); g.gain.linearRampToValueAtTime(v, audioCtx.currentTime + dl + 0.01); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dl + d); o.connect(g); g.connect(audioCtx.destination); o.start(audioCtx.currentTime + dl); o.stop(audioCtx.currentTime + dl + d + 0.05); }
     function playEcho() { playTone(920, 0.04, 'square', 0.04); playTone(460, 0.06, 'sine', 0.025, 0.02); }
     function playAlert() { playTone(180, 0.15, 'sawtooth', 0.09); playTone(90, 0.25, 'sawtooth', 0.12, 0.1); }
     function playHeartbeat(int) { const b = 35 + int * 25; playTone(b, 0.06, 'sine', 0.015 + int * 0.04); playTone(b * 0.5, 0.08, 'sine', 0.008 + int * 0.02, 0.04); }
     function playCardCollect() { [580, 740, 930].forEach((f, i) => playTone(f, 0.07, 'sine', 0.06, i * 0.05)); }
     function playWin() { [523, 659, 784, 1047].forEach((f, i) => playTone(f, 0.18, 'sine', 0.07, i * 0.12)); }
-    function playLose() {
-      playTone(70, 0.4, 'sawtooth', 0.18); playTone(45, 0.6, 'square', 0.25, 0.25);
-      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-      o.frequency.value = 25; g.gain.value = 0.15; o.connect(g); g.connect(audioCtx.destination);
-      o.start(); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2); o.stop(audioCtx.currentTime + 1.2);
-    }
-    function playAmbient() {
-      if (!audioCtx) return;
-      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-      o.type = 'triangle'; o.frequency.value = 28 + Math.random() * 8; g.gain.value = 0.015;
-      o.connect(g); g.connect(audioCtx.destination); o.start();
-      const d = 3 + Math.random() * 3; g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + d);
-      o.stop(audioCtx.currentTime + d + 0.1);
-      setTimeout(playAmbient, 4000 + Math.random() * 5000);
-    }
+    function playLose() { playTone(70, 0.4, 'sawtooth', 0.18); playTone(45, 0.6, 'square', 0.25, 0.25); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.frequency.value = 25; g.gain.value = 0.15; o.connect(g); g.connect(audioCtx.destination); o.start(); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2); o.stop(audioCtx.currentTime + 1.2); }
+    function playAmbient() { if (!audioCtx) return; const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = 'triangle'; o.frequency.value = 28 + Math.random() * 8; g.gain.value = 0.015; o.connect(g); g.connect(audioCtx.destination); o.start(); const d = 3 + Math.random() * 3; g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + d); o.stop(audioCtx.currentTime + d + 0.1); setTimeout(playAmbient, 4000 + Math.random() * 5000); }
 
     // ==================== ГЕНЕРАЦИЯ УРОВНЯ ====================
     function initFog() {
       fogCells = [];
-      const cols = Math.ceil(CONFIG.width / CONFIG.fogGridSize);
-      const rows = Math.ceil(CONFIG.height / CONFIG.fogGridSize);
-      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-        fogCells.push({ 
-          x: c * CONFIG.fogGridSize, 
-          y: r * CONFIG.fogGridSize, 
-          alpha: CONFIG.fogMinAlpha, 
-          targetAlpha: CONFIG.fogMinAlpha, 
-          lerpSpeed: CONFIG.fogLerpBase + Math.random() * 0.004 
-        });
-      }
+      const cols = Math.ceil(CONFIG.width / CONFIG.fogGridSize), rows = Math.ceil(CONFIG.height / CONFIG.fogGridSize);
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) fogCells.push({ x: c * CONFIG.fogGridSize, y: r * CONFIG.fogGridSize, alpha: CONFIG.fogMinAlpha, targetAlpha: CONFIG.fogMinAlpha, lerpSpeed: CONFIG.fogLerpBase + Math.random() * 0.004 });
     }
 
     function generateRandomCards(count, minDist = 100) {
@@ -246,8 +167,7 @@
         const x = 40 + Math.random() * (CONFIG.width - 80), y = 40 + Math.random() * (CONFIG.height - 80);
         let ok = true;
         for (const w of walls) if (x > w.x - 20 && x < w.x + w.w + 20 && y > w.y - 20 && y < w.y + w.h + 20) { ok = false; break; }
-        if (!ok) continue;
-        if (res.some(c => Math.hypot(x - c.x, y - c.y) < minDist)) continue;
+        if (!ok || res.some(c => Math.hypot(x - c.x, y - c.y) < minDist)) continue;
         res.push({ x, y, radius: 7, collected: false, holdProgress: 0 });
       }
       return res.length === count ? res : null;
@@ -255,12 +175,10 @@
 
     function generateLevel() {
       walls = []; cards = [];
-      // Базовые стены
       walls.push({x:0,y:0,w:CONFIG.width,h:18}, {x:0,y:CONFIG.height-18,w:CONFIG.width,h:18}, {x:0,y:0,w:18,h:CONFIG.height}, {x:CONFIG.width-18,y:0,w:18,h:CONFIG.height});
       const obs = [{x:180,y:100,w:30,h:180},{x:320,y:420,w:140,h:30},{x:520,y:150,w:30,h:200},{x:200,y:450,w:100,h:30},{x:600,y:400,w:30,h:120},{x:420,y:280,w:60,h:60},{x:120,y:380,w:80,h:25}];
       walls.push(...obs);
 
-      // Рандомные карты (фоллбэк на фиксированные если генерация не удалась)
       const randCards = generateRandomCards(3, 110);
       cards = randCards || [{x:240,y:140},{x:560,y:480},{x:380,y:180}].map(p => ({x:p.x,y:p.y,radius:7,collected:false,holdProgress:0}));
       
@@ -271,86 +189,70 @@
       enemy.investigate = null; enemy.alertPulse = 0; enemy.stuckFrames = 0; enemy.lastX = enemy.x; enemy.lastY = enemy.y;
       state.cardsFound = 0; state.silenceTimer = 0; state.echoTimer = 0; state.holdingCard = null; state.currentFogRadius = CONFIG.fogBaseRadius;
       document.getElementById('cards').textContent = '0'; document.getElementById('silence').textContent = '0';
-      
       initFog();
     }
 
     // ==================== ФИЗИКА ====================
-    function circleRectCollision(cx, cy, r, rect) { 
-      const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
-      const closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.h));
-      return ((cx - closestX) ** 2 + (cy - closestY) ** 2) < (r * r); 
-    }
-    function lineIntersectsWall(x1, y1, x2, y2) { 
-      for (const w of walls) { 
-        if (x1 < w.x - 5 && x2 < w.x - 5 || x1 > w.x + w.w + 5 && x2 > w.x + w.w + 5 || y1 < w.y - 5 && y2 < w.y - 5 || y1 > w.y + w.h + 5 && y2 > w.y + w.h + 5) continue; 
-        const s = [{x1:w.x,y1:w.y,x2:w.x+w.w,y2:w.y},{x1:w.x,y1:w.y+w.h,x2:w.x+w.w,y2:w.y+w.h},{x1:w.x,y1:w.y,x2:w.x,y2:w.y+w.h},{x1:w.x+w.w,y1:w.y,x2:w.x+w.w,y2:w.y+w.h}]; 
-        for (const q of s) { 
-          const d = (q.y2 - q.y1) * (x2 - x1) - (q.x2 - q.x1) * (y2 - y1); 
-          if (Math.abs(d) < 0.01) continue; 
-          const ua = ((q.x2 - q.x1) * (y1 - q.y1) - (q.y2 - q.y1) * (x1 - q.x1)) / d, 
-                ub = ((x2 - x1) * (y1 - q.y1) - (y2 - y1) * (x1 - q.x1)) / d; 
-          if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) return true; 
-        } 
-      } 
-      return false; 
-    }
-    function moveWithCollision(obj, dx, dy, sp) { 
-      const nx = obj.x + dx * sp, ny = obj.y + dy * sp; 
-      let cx = true, cy = true; 
-      for (const w of walls) { 
-        if (circleRectCollision(nx, obj.y, obj.radius, w)) cx = false; 
-        if (circleRectCollision(obj.x, ny, obj.radius, w)) cy = false; 
-      } 
-      if (cx) obj.x = nx; if (cy) obj.y = ny; 
-      obj.x = Math.max(obj.radius + 2, Math.min(CONFIG.width - obj.radius - 2, obj.x)); 
-      obj.y = Math.max(obj.radius + 2, Math.min(CONFIG.height - obj.radius - 2, obj.y)); 
+    function circleRectCollision(cx, cy, r, rect) { const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.w)), closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.h)); return ((cx - closestX) ** 2 + (cy - closestY) ** 2) < (r * r); }
+    function lineIntersectsWall(x1, y1, x2, y2) { for (const w of walls) { if (x1 < w.x - 5 && x2 < w.x - 5 || x1 > w.x + w.w + 5 && x2 > w.x + w.w + 5 || y1 < w.y - 5 && y2 < w.y - 5 || y1 > w.y + w.h + 5 && y2 > w.y + w.h + 5) continue; const s = [{x1:w.x,y1:w.y,x2:w.x+w.w,y2:w.y},{x1:w.x,y1:w.y+w.h,x2:w.x+w.w,y2:w.y+w.h},{x1:w.x,y1:w.y,x2:w.x,y2:w.y+w.h},{x1:w.x+w.w,y1:w.y,x2:w.x+w.w,y2:w.y+w.h}]; for (const q of s) { const d = (q.y2 - q.y1) * (x2 - x1) - (q.x2 - q.x1) * (y2 - y1); if (Math.abs(d) < 0.01) continue; const ua = ((q.x2 - q.x1) * (y1 - q.y1) - (q.y2 - q.y1) * (x1 - q.x1)) / d, ub = ((x2 - x1) * (y1 - q.y1) - (y2 - y1) * (x1 - q.x1)) / d; if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) return true; } } return false; }
+    function moveWithCollision(obj, dx, dy, sp) { const nx = obj.x + dx * sp, ny = obj.y + dy * sp; let cx = true, cy = true; for (const w of walls) { if (circleRectCollision(nx, obj.y, obj.radius, w)) cx = false; if (circleRectCollision(obj.x, ny, obj.radius, w)) cy = false; } if (cx) obj.x = nx; if (cy) obj.y = ny; obj.x = Math.max(obj.radius + 2, Math.min(CONFIG.width - obj.radius - 2, obj.x)); obj.y = Math.max(obj.radius + 2, Math.min(CONFIG.height - obj.radius - 2, obj.y)); }
+
+    // ==================== ВРАГ (🔧 ИСПРАВЛЕННАЯ ЛОГИКА) ====================
+    function isInEnemyVision() {
+      const dx = player.x - enemy.x, dy = player.y - enemy.y, dist = Math.hypot(dx, dy);
+      if (dist > CONFIG.enemyVisionRange) return false;
+      if (lineIntersectsWall(enemy.x, enemy.y, player.x, player.y)) return false;
+      const angleToPlayer = Math.atan2(dy, dx);
+      let angleDiff = Math.abs(angleToPlayer - enemy.direction);
+      if (angleDiff > Math.PI) angleDiff = Math.PI * 2 - angleDiff;
+      // Динамический конус: шире вблизи
+      const effectiveAngle = dist < 100 ? 360 : (dist < 150 ? CONFIG.enemyVisionAngle * 1.5 : CONFIG.enemyVisionAngle);
+      return angleDiff < (effectiveAngle / 2) * Math.PI / 180;
     }
 
-    // ==================== ВРАГ ====================
-    function isInEnemyVision() { 
-      const dx = player.x - enemy.x, dy = player.y - enemy.y, d = Math.hypot(dx, dy); 
-      if (d > CONFIG.enemyVisionRange) return false; 
-      if (lineIntersectsWall(enemy.x, enemy.y, player.x, player.y)) return false; 
-      let ad = Math.abs(Math.atan2(dy, dx) - enemy.direction); 
-      if (ad > Math.PI) ad = 2 * Math.PI - ad; 
-      return ad < (CONFIG.enemyVisionAngle / 2) * Math.PI / 180; 
-    }
-    function triggerEcho() { 
-      playEcho(); state.echoTimer = CONFIG.echoDuration; 
-      enemy.investigate = { x: player.x + (Math.random() - 0.5) * 20, y: player.y + (Math.random() - 0.5) * 20, timer: 170 }; 
-      enemy.alertPulse = 1; playAlert(); showMessage("ОНА УСЛЫШАЛА...", 100); 
-    }
-    
     function updateEnemy() {
       if (enemy.alertPulse > 0) { enemy.alertPulse *= 0.94; if (enemy.alertPulse < 0.02) enemy.alertPulse = 0; }
       enemy.lastX = enemy.x; enemy.lastY = enemy.y;
 
+      // РЕЖИМ РАССЛЕДОВАНИЯ
       if (enemy.investigate) {
-        const dx = enemy.investigate.x - enemy.x, dy = enemy.investigate.y - enemy.y, l = Math.hypot(dx, dy) || 1;
-        if (l > 4) { moveWithCollision(enemy, dx / l, dy / l, CONFIG.enemyChaseSpeed); enemy.direction = Math.atan2(dy, dx); }
-        else { 
-          enemy.direction += (Math.random() - 0.5) * 0.15; 
-          enemy.investigate.timer--; 
-          if (enemy.investigate.timer % 25 === 0) playTone(280 + Math.random() * 40, 0.04, 'sine', 0.02); 
-          if (enemy.investigate.timer <= 0) enemy.investigate = null; 
+        const dx = enemy.investigate.x - enemy.x, dy = enemy.investigate.y - enemy.y, len = Math.hypot(dx, dy) || 1;
+        if (len > 4) {
+          moveWithCollision(enemy, dx / len, dy / len, CONFIG.enemyChaseSpeed);
+          enemy.direction = Math.atan2(dy, dx);
+        } else {
+          const toPx = player.x - enemy.x, toPy = player.y - enemy.y;
+          if (Math.hypot(toPx, toPy) < CONFIG.enemyVisionRange) enemy.direction = Math.atan2(toPy, toPx);
+          else enemy.direction += (Math.random() - 0.5) * 0.15;
+          enemy.investigate.timer--;
+          if (enemy.investigate.timer % 25 === 0) playTone(280 + Math.random()*40, 0.04, 'sine', 0.02);
+          if (enemy.investigate.timer <= 0) enemy.investigate = null;
         }
+        if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.radius + enemy.radius - 2) { gameOver(false); return; }
         return;
       }
 
-      // Анти-застревание
+      // АНТИ-ЗАСТРЕВАНИЕ
       const moved = Math.hypot(enemy.x - enemy.lastX, enemy.y - enemy.lastY);
-      if (moved < 0.3) enemy.stuckFrames++; else enemy.stuckFrames = 0;
-      if (enemy.stuckFrames > 45) { enemy.patrol.angle += Math.PI / 2; enemy.stuckFrames = 0; }
+      if (moved < 0.3) { enemy.stuckFrames++; if (enemy.stuckFrames > 60) { enemy.patrol.angle += Math.PI / 2 + (Math.random() - 0.5) * 0.5; enemy.stuckFrames = 0; } }
+      else enemy.stuckFrames = 0;
 
+      // ПАТРУЛИРОВАНИЕ
       enemy.patrol.angle += 0.006;
       const tx = enemy.patrol.x + Math.cos(enemy.patrol.angle) * enemy.patrol.radius;
       const ty = enemy.patrol.y + Math.sin(enemy.patrol.angle) * enemy.patrol.radius;
-      const dx = tx - enemy.x, dy = ty - enemy.y, l = Math.hypot(dx, dy) || 1;
-      if (l > 3) { moveWithCollision(enemy, dx / l, dy / l, CONFIG.enemyPatrolSpeed); enemy.direction = Math.atan2(dy, dx); }
+      const dx = tx - enemy.x, dy = ty - enemy.y, len = Math.hypot(dx, dy) || 1;
+      if (len > 3) { moveWithCollision(enemy, dx / len, dy / len, CONFIG.enemyPatrolSpeed); enemy.direction = Math.atan2(dy, dx); }
       else if (Math.random() < 0.01) enemy.patrol.angle += (Math.random() - 0.5) * 1.5;
 
+      // Поворот к игроку если близко
+      const toPx = player.x - enemy.x, toPy = player.y - enemy.y;
+      if (Math.hypot(toPx, toPy) < CONFIG.enemyVisionRange * 0.7) enemy.direction = Math.atan2(toPy, toPx);
+
+      // ПРОВЕРКИ СМЕРТИ
+      if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.radius + enemy.radius - 2) { gameOver(false); return; }
       if (isInEnemyVision()) { gameOver(false); return; }
+
       if (state.silenceTimer > CONFIG.silenceThreshold && enemy.investigate) enemy.investigate = null;
     }
 
@@ -367,24 +269,11 @@
             holdFill.style.width = (card.holdProgress / CONFIG.cardHoldTime * 100) + '%'; 
             if (card.holdProgress % 8 === 0) playTone(420, 0.02, 'sine', 0.015);
             if (card.holdProgress >= CONFIG.cardHoldTime) { 
-              card.collected = true; state.cardsFound++; state.holdingCard = null; 
-              holdBar.style.display = 'none'; playCardCollect(); 
-              document.getElementById('cards').textContent = state.cardsFound; 
+              card.collected = true; state.cardsFound++; state.holdingCard = null; holdBar.style.display = 'none'; playCardCollect(); document.getElementById('cards').textContent = state.cardsFound; 
               if (state.cardsFound === 3) { exit.active = true; showMessage("✓ ДВЕРЬ ОТКРЫТА", 200); playTone(1100, 0.15, 'sine', 0.1); }
             }
-          } else { 
-            if (!player.breathHold) card.holdProgress = Math.max(0, card.holdProgress - 2); 
-            holdFill.style.width = (card.holdProgress / CONFIG.cardHoldTime * 100) + '%'; 
-            if (card.holdProgress === 0) holdBar.style.display = 'none'; 
-          }
-        } else { 
-          if (card.holdProgress > 0) { 
-            card.holdProgress = Math.max(0, card.holdProgress - 3); 
-            holdFill.style.width = (card.holdProgress / CONFIG.cardHoldTime * 100) + '%'; 
-            if (card.holdProgress === 0) holdBar.style.display = 'none'; 
-          } 
-          if (state.holdingCard === card) state.holdingCard = null; 
-        }
+          } else { if (!player.breathHold) card.holdProgress = Math.max(0, card.holdProgress - 2); holdFill.style.width = (card.holdProgress / CONFIG.cardHoldTime * 100) + '%'; if (card.holdProgress === 0) holdBar.style.display = 'none'; }
+        } else { if (card.holdProgress > 0) { card.holdProgress = Math.max(0, card.holdProgress - 3); holdFill.style.width = (card.holdProgress / CONFIG.cardHoldTime * 100) + '%'; if (card.holdProgress === 0) holdBar.style.display = 'none'; } if (state.holdingCard === card) state.holdingCard = null; }
       }
     }
 
@@ -393,19 +282,13 @@
     function updateFog(panic) {
       const targetR = state.echoTimer > 0 ? CONFIG.echoRadius : CONFIG.fogBaseRadius;
       state.currentFogRadius += (targetR - state.currentFogRadius) * 0.15;
-      
       const margin = state.currentFogRadius + CONFIG.fogFadeMargin + 10;
       const bx = player.x - margin, by = player.y - margin, br = player.x + margin, bt = player.y + margin;
       const modMax = CONFIG.fogMaxAlpha + (Math.sin(Date.now() / 350) * 0.06 * panic);
-
       for (const c of fogCells) {
         c.alpha += (c.targetAlpha - c.alpha) * c.lerpSpeed;
-        if (Math.abs(c.alpha - c.targetAlpha) < 0.01) { 
-          c.targetAlpha = CONFIG.fogMinAlpha + Math.random() * (modMax - CONFIG.fogMinAlpha); 
-          c.lerpSpeed = CONFIG.fogLerpBase + Math.random() * 0.004; 
-        }
+        if (Math.abs(c.alpha - c.targetAlpha) < 0.01) { c.targetAlpha = CONFIG.fogMinAlpha + Math.random() * (modMax - CONFIG.fogMinAlpha); c.lerpSpeed = CONFIG.fogLerpBase + Math.random() * 0.004; }
         if (c.x > br || c.x + CONFIG.fogGridSize < bx || c.y > bt || c.y + CONFIG.fogGridSize < by) continue;
-        
         const cx = c.x + CONFIG.fogGridSize / 2, cy = c.y + CONFIG.fogGridSize / 2;
         const d = Math.hypot(cx - player.x, cy - player.y);
         if (d < state.currentFogRadius) c.alpha = 0;
@@ -415,21 +298,13 @@
 
     // ==================== АТМОСФЕРА ====================
     function updateAtmosphere() {
-      const d = Math.hypot(player.x - enemy.x, player.y - enemy.y), 
-            prox = Math.max(0, 1 - d / 350), 
-            vis = isInEnemyVision() ? 1 : 0, 
-            pan = Math.max(prox, vis);
+      const d = Math.hypot(player.x - enemy.x, player.y - enemy.y), prox = Math.max(0, 1 - d / 350), vis = isInEnemyVision() ? 1 : 0, pan = Math.max(prox, vis);
       const bpm = CONFIG.heartbeatBase + (CONFIG.heartbeatMax - CONFIG.heartbeatBase) * pan;
       const int = 60 / bpm * 60;
-      if (!state.heartbeatTimer || state.heartbeatTimer <= 0) { 
-        playHeartbeat(pan); state.heartbeatTimer = int; state.screenPulse = 0.08 + pan * 0.12; 
-      }
+      if (!state.heartbeatTimer || state.heartbeatTimer <= 0) { playHeartbeat(pan); state.heartbeatTimer = int; state.screenPulse = 0.08 + pan * 0.12; }
       if (state.heartbeatTimer > 0) state.heartbeatTimer--;
       vignette.style.opacity = 0.5 + pan * 0.35;
-      if (pan > 0.4 && Math.random() < 0.008 * pan) { 
-        ctx.fillStyle = `rgba(0,255,0,${0.05 + pan * 0.1})`; 
-        ctx.fillRect(Math.random() * CONFIG.width, Math.random() * CONFIG.height, CONFIG.width * 0.3, 1 + Math.random() * 3); 
-      }
+      if (pan > 0.4 && Math.random() < 0.008 * pan) { ctx.fillStyle = `rgba(0,255,0,${0.05 + pan * 0.1})`; ctx.fillRect(Math.random() * CONFIG.width, Math.random() * CONFIG.height, CONFIG.width * 0.3, 1 + Math.random() * 3); }
       return pan;
     }
 
@@ -442,168 +317,49 @@
       ctx.stroke();
       
       ctx.fillStyle = '#020'; ctx.strokeStyle = '#0a0'; ctx.lineWidth = 2; 
-      for (const w of walls) { 
-        ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeRect(w.x, w.y, w.w, w.h); 
-        ctx.fillStyle = 'rgba(0,80,0,0.3)'; ctx.fillRect(w.x + 3, w.y + 3, w.w - 6, w.h - 6); 
-        ctx.fillStyle = '#020'; 
-      }
+      for (const w of walls) { ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeRect(w.x, w.y, w.w, w.h); ctx.fillStyle = 'rgba(0,80,0,0.3)'; ctx.fillRect(w.x + 3, w.y + 3, w.w - 6, w.h - 6); ctx.fillStyle = '#020'; }
       
-      if (exit.active) { 
-        const p = 1 + Math.sin(Date.now() / 100) * 0.15; 
-        ctx.fillStyle = `rgba(0,255,0,${0.7 + Math.sin(Date.now() / 80) * 0.2})`; 
-        ctx.fillRect(exit.x, exit.y, exit.w, exit.h); 
-        ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2 + p * 0.5; 
-        ctx.strokeRect(exit.x - 2, exit.y - 2, exit.w + 4, exit.h + 4); 
-        ctx.fillStyle = '#000'; ctx.font = '9px monospace'; ctx.fillText('→', exit.x + 8, exit.y + 28); 
-      }
+      if (exit.active) { const p = 1 + Math.sin(Date.now() / 100) * 0.15; ctx.fillStyle = `rgba(0,255,0,${0.7 + Math.sin(Date.now() / 80) * 0.2})`; ctx.fillRect(exit.x, exit.y, exit.w, exit.h); ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2 + p * 0.5; ctx.strokeRect(exit.x - 2, exit.y - 2, exit.w + 4, exit.h + 4); ctx.fillStyle = '#000'; ctx.font = '9px monospace'; ctx.fillText('→', exit.x + 8, exit.y + 28); }
       
-      for (const card of cards) { 
-        if (card.collected) continue; 
-        if (state.echoTimer > 0 && Math.hypot(player.x - card.x, player.y - card.y) < CONFIG.echoRadius + 30) { 
-          const r = card.radius + Math.sin(Date.now() / 80) * 1.5; 
-          if (svgPaths.card.length > 0) svgPaths.card.forEach(p => drawSVGEl(ctx, p, card.x - 10, card.y - 10)); 
-          else { 
-            ctx.beginPath(); ctx.arc(card.x, card.y, r, 0, Math.PI * 2); 
-            ctx.fillStyle = `rgba(0,255,0,${0.6 + Math.sin(Date.now() / 60) * 0.2})`; ctx.fill(); 
-            ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2; ctx.stroke(); 
-          } 
-        } 
-      }
+      for (const card of cards) { if (card.collected) continue; if (state.echoTimer > 0 && Math.hypot(player.x - card.x, player.y - card.y) < CONFIG.echoRadius + 30) { const r = card.radius + Math.sin(Date.now() / 80) * 1.5; if (svgPaths.card.length > 0) svgPaths.card.forEach(p => drawSVGEl(ctx, p, card.x - 10, card.y - 10)); else { ctx.beginPath(); ctx.arc(card.x, card.y, r, 0, Math.PI * 2); ctx.fillStyle = `rgba(0,255,0,${0.6 + Math.sin(Date.now() / 60) * 0.2})`; ctx.fill(); ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2; ctx.stroke(); } } }
       
-      if (state.echoTimer > 0) { 
-        const pr = state.echoTimer / CONFIG.echoDuration, rad = CONFIG.echoRadius * (0.7 + 0.3 * pr); 
-        const g = ctx.createRadialGradient(player.x, player.y, 0, player.x, player.y, rad); 
-        g.addColorStop(0, 'rgba(0,255,0,0.18)'); g.addColorStop(0.6, 'rgba(0,255,0,0.06)'); g.addColorStop(1, 'rgba(0,255,0,0)'); 
-        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(player.x, player.y, rad, 0, Math.PI * 2); ctx.fill(); 
-        ctx.strokeStyle = `rgba(0,255,0,${0.25 + Math.sin(Date.now() / 40) * 0.1})`; ctx.lineWidth = 2; 
-        ctx.beginPath(); ctx.arc(player.x, player.y, CONFIG.echoRadius * pr, 0, Math.PI * 2); ctx.stroke(); 
-      }
+      if (state.echoTimer > 0) { const pr = state.echoTimer / CONFIG.echoDuration, rad = CONFIG.echoRadius * (0.7 + 0.3 * pr); const g = ctx.createRadialGradient(player.x, player.y, 0, player.x, player.y, rad); g.addColorStop(0, 'rgba(0,255,0,0.18)'); g.addColorStop(0.6, 'rgba(0,255,0,0.06)'); g.addColorStop(1, 'rgba(0,255,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(player.x, player.y, rad, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = `rgba(0,255,0,${0.25 + Math.sin(Date.now() / 40) * 0.1})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(player.x, player.y, CONFIG.echoRadius * pr, 0, Math.PI * 2); ctx.stroke(); }
       
-      if (svgPaths.player.length > 0) svgPaths.player.forEach(p => drawSVGEl(ctx, p, player.x - 20, player.y - 20)); 
-      else { 
-        ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); 
-        ctx.fillStyle = player.breathHold ? '#0a0' : player.color; ctx.fill(); 
-        ctx.strokeStyle = player.breathHold ? '#0c0' : '#0f0'; ctx.lineWidth = 2; ctx.stroke(); 
-      }
+      if (svgPaths.player.length > 0) svgPaths.player.forEach(p => drawSVGEl(ctx, p, player.x - 20, player.y - 20)); else { ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fillStyle = player.breathHold ? '#0a0' : player.color; ctx.fill(); ctx.strokeStyle = player.breathHold ? '#0c0' : '#0f0'; ctx.lineWidth = 2; ctx.stroke(); }
+      if (svgPaths.enemy.length > 0) svgPaths.enemy.forEach(p => drawSVGEl(ctx, p, enemy.x - 20, enemy.y - 20)); else { const eg = enemy.alertPulse > 0 ? enemy.alertPulse : 0; ctx.beginPath(); ctx.arc(enemy.x, enemy.y, enemy.radius + eg * 3, 0, Math.PI * 2); ctx.fillStyle = enemy.investigate ? '#f88' : enemy.color; ctx.fill(); ctx.strokeStyle = enemy.investigate ? '#f44' : '#a22'; ctx.lineWidth = 2 + eg * 2; ctx.stroke(); ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(enemy.x - 4, enemy.y - 3, 3, 0, Math.PI * 2); ctx.arc(enemy.x + 4, enemy.y - 3, 3, 0, Math.PI * 2); ctx.fill(); const ld = Math.hypot(player.x - enemy.x, player.y - enemy.y); if (ld < 300) { const lx = (player.x - enemy.x) / ld * 1.5, ly = (player.y - enemy.y) / ld * 1.5; ctx.fillStyle = '#f00'; ctx.beginPath(); ctx.arc(enemy.x - 4 + lx, enemy.y - 3 + ly, 1.5, 0, Math.PI * 2); ctx.arc(enemy.x + 4 + lx, enemy.y - 3 + ly, 1.5, 0, Math.PI * 2); ctx.fill(); } }
+      if (!enemy.investigate && svgPaths.enemy.length === 0) { ctx.save(); ctx.translate(enemy.x, enemy.y); ctx.rotate(enemy.direction); ctx.fillStyle = 'rgba(255,50,50,0.04)'; ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,CONFIG.enemyVisionRange, -CONFIG.enemyVisionAngle/2*Math.PI/180, CONFIG.enemyVisionAngle/2*Math.PI/180); ctx.closePath(); ctx.fill(); ctx.restore(); }
       
-      if (svgPaths.enemy.length > 0) svgPaths.enemy.forEach(p => drawSVGEl(ctx, p, enemy.x - 20, enemy.y - 20)); 
-      else { 
-        const eg = enemy.alertPulse > 0 ? enemy.alertPulse : 0; 
-        ctx.beginPath(); ctx.arc(enemy.x, enemy.y, enemy.radius + eg * 3, 0, Math.PI * 2); 
-        ctx.fillStyle = enemy.investigate ? '#f88' : enemy.color; ctx.fill(); 
-        ctx.strokeStyle = enemy.investigate ? '#f44' : '#a22'; ctx.lineWidth = 2 + eg * 2; ctx.stroke(); 
-        ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(enemy.x - 4, enemy.y - 3, 3, 0, Math.PI * 2); ctx.arc(enemy.x + 4, enemy.y - 3, 3, 0, Math.PI * 2); ctx.fill(); 
-        const ld = Math.hypot(player.x - enemy.x, player.y - enemy.y); 
-        if (ld < 300) { 
-          const lx = (player.x - enemy.x) / ld * 1.5, ly = (player.y - enemy.y) / ld * 1.5; 
-          ctx.fillStyle = '#f00'; ctx.beginPath(); 
-          ctx.arc(enemy.x - 4 + lx, enemy.y - 3 + ly, 1.5, 0, Math.PI * 2); 
-          ctx.arc(enemy.x + 4 + lx, enemy.y - 3 + ly, 1.5, 0, Math.PI * 2); ctx.fill(); 
-        } 
-      }
-      
-      // ТУМАН
-      for (const c of fogCells) if (c.alpha > 0.01) { 
-        ctx.fillStyle = `rgba(0,17,0,${c.alpha})`; 
-        ctx.fillRect(c.x, c.y, CONFIG.fogGridSize, CONFIG.fogGridSize); 
-      }
-      
-      if (state.screenPulse > 0.01) { 
-        ctx.fillStyle = `rgba(30,0,0,${state.screenPulse})`; 
-        ctx.fillRect(0, 0, CONFIG.width, CONFIG.height); 
-        state.screenPulse *= 0.88; 
-      }
+      for (const c of fogCells) if (c.alpha > 0.01) { ctx.fillStyle = `rgba(0,17,0,${c.alpha})`; ctx.fillRect(c.x, c.y, CONFIG.fogGridSize, CONFIG.fogGridSize); }
+      if (state.screenPulse > 0.01) { ctx.fillStyle = `rgba(30,0,0,${state.screenPulse})`; ctx.fillRect(0, 0, CONFIG.width, CONFIG.height); state.screenPulse *= 0.88; }
     }
-    
-    function drawSVGEl(c, p, ox, oy) { 
-      c.save(); c.translate(ox, oy); 
-      if (p.type === 'rect') { 
-        if (p.fill) { c.fillStyle = p.fill; c.fillRect(p.x, p.y, p.w, p.h); } 
-        if (p.stroke) { c.strokeStyle = p.stroke; c.strokeRect(p.x, p.y, p.w, p.h); } 
-      } else if (p.type === 'circle') { 
-        c.beginPath(); c.arc(p.cx, p.cy, p.r, 0, Math.PI * 2); 
-        if (p.fill) { c.fillStyle = p.fill; c.fill(); } 
-        if (p.stroke) { c.strokeStyle = p.stroke; c.stroke(); } 
-      } 
-      c.restore(); 
-    }
+    function drawSVGEl(c, p, ox, oy) { c.save(); c.translate(ox, oy); if (p.type === 'rect') { if (p.fill) { c.fillStyle = p.fill; c.fillRect(p.x, p.y, p.w, p.h); } if (p.stroke) { c.strokeStyle = p.stroke; c.strokeRect(p.x, p.y, p.w, p.h); } } else if (p.type === 'circle') { c.beginPath(); c.arc(p.cx, p.cy, p.r, 0, Math.PI * 2); if (p.fill) { c.fillStyle = p.fill; c.fill(); } if (p.stroke) { c.strokeStyle = p.stroke; c.stroke(); } } c.restore(); }
 
     // ==================== ЛОГИКА ====================
     function update() {
       if (!state.running || state.gameOver) return;
       const keys = pressedKeys; let dx = 0, dy = 0;
       player.breathHold = (keys['Shift'] || keys['ShiftLeft'] || keys['ShiftRight']);
-      if (!player.breathHold) { 
-        if (keys['ArrowUp'] || keys['w'] || keys['W']) dy = -1; 
-        if (keys['ArrowDown'] || keys['s'] || keys['S']) dy = 1; 
-        if (keys['ArrowLeft'] || keys['a'] || keys['A']) dx = -1; 
-        if (keys['ArrowRight'] || keys['d'] || keys['D']) dx = 1; 
-      }
+      if (!player.breathHold) { if (keys['ArrowUp'] || keys['w'] || keys['W']) dy = -1; if (keys['ArrowDown'] || keys['s'] || keys['S']) dy = 1; if (keys['ArrowLeft'] || keys['a'] || keys['A']) dx = -1; if (keys['ArrowRight'] || keys['d'] || keys['D']) dx = 1; }
       if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
-      if ((dx !== 0 || dy !== 0) && !player.breathHold) { 
-        moveWithCollision(player, dx, dy, CONFIG.playerSpeed); state.silenceTimer = 0; 
-        if (Math.random() > 0.97) playTone(80 + Math.random() * 30, 0.02, 'sine', 0.01); 
-      } else state.silenceTimer++;
+      if ((dx !== 0 || dy !== 0) && !player.breathHold) { moveWithCollision(player, dx, dy, CONFIG.playerSpeed); state.silenceTimer = 0; if (Math.random() > 0.97) playTone(80 + Math.random() * 30, 0.02, 'sine', 0.01); } else state.silenceTimer++;
       if ((keys[' '] || keys['Spacebar']) && !player.breathHold && state.echoTimer === 0) triggerEcho();
       if (state.echoTimer > 0) state.echoTimer--;
       updateCards(); updateEnemy(); const pan = updateAtmosphere(); updateFog(pan);
       if (exit.active && player.x > exit.x && player.x < exit.x + exit.w && player.y > exit.y && player.y < exit.y + exit.h) gameOver(true);
       document.getElementById('silence').textContent = Math.floor(state.silenceTimer / 60);
     }
-    
+    function triggerEcho() { playEcho(); state.echoTimer = CONFIG.echoDuration; enemy.investigate = { x: player.x + (Math.random() - 0.5) * 20, y: player.y + (Math.random() - 0.5) * 20, timer: 170 }; enemy.alertPulse = 1; playAlert(); showMessage("ОНА УСЛЫШАЛА...", 100); }
     function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
-    
-    function showMessage(t, d) { 
-      const e = document.getElementById('message'); e.textContent = t; e.classList.add('show'); 
-      setTimeout(() => e.classList.remove('show'), d); 
-    }
-    
-    function gameOver(win) { 
-      state.running = false; state.gameOver = true; state.win = win; 
-      if (win) { playWin(); document.getElementById('win-screen').classList.remove('hidden'); } 
-      else { 
-        playLose(); 
-        setTimeout(() => { 
-          ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillRect(0, 0, CONFIG.width, CONFIG.height); 
-          ctx.fillStyle = '#f00'; ctx.font = 'bold 24px monospace'; ctx.textAlign = 'center'; 
-          ctx.fillText('ОНА ТЕБЯ НАШЛА', CONFIG.width / 2, CONFIG.height / 2); 
-          ctx.font = '14px monospace'; ctx.fillStyle = '#0f0'; 
-          ctx.fillText('нажми для перезапуска', CONFIG.width / 2, CONFIG.height / 2 + 30); 
-        }, 800); 
-        document.getElementById('lose-screen').classList.remove('hidden'); 
-      } 
-    }
-    
-    function startGame() { 
-      initAudio(); generateLevel(); state.running = true; state.gameOver = false; state.win = false; 
-      document.getElementById('start-screen').classList.add('hidden'); 
-      document.getElementById('win-screen').classList.add('hidden'); 
-      document.getElementById('lose-screen').classList.add('hidden'); 
-      pressedKeys = {}; holdBar.style.display = 'none'; 
-      if (audioCtx) setTimeout(playAmbient, 2000); 
-    }
+    function showMessage(t, d) { const e = document.getElementById('message'); e.textContent = t; e.classList.add('show'); setTimeout(() => e.classList.remove('show'), d); }
+    function gameOver(win) { state.running = false; state.gameOver = true; state.win = win; if (win) { playWin(); document.getElementById('win-screen').classList.remove('hidden'); } else { playLose(); setTimeout(() => { ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillRect(0, 0, CONFIG.width, CONFIG.height); ctx.fillStyle = '#f00'; ctx.font = 'bold 24px monospace'; ctx.textAlign = 'center'; ctx.fillText('ОНА ТЕБЯ НАШЛА', CONFIG.width / 2, CONFIG.height / 2); ctx.font = '14px monospace'; ctx.fillStyle = '#0f0'; ctx.fillText('нажми для перезапуска', CONFIG.width / 2, CONFIG.height / 2 + 30); }, 800); document.getElementById('lose-screen').classList.remove('hidden'); } }
+    function startGame() { initAudio(); generateLevel(); state.running = true; state.gameOver = false; state.win = false; document.getElementById('start-screen').classList.add('hidden'); document.getElementById('win-screen').classList.add('hidden'); document.getElementById('lose-screen').classList.add('hidden'); pressedKeys = {}; holdBar.style.display = 'none'; if (audioCtx) setTimeout(playAmbient, 2000); }
 
     // ==================== ВВОД ====================
-    let pressedKeys = {}; 
-    window.addEventListener('keydown', e => { 
-      pressedKeys[e.key] = true; 
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault(); 
-      if (state.gameOver) startGame(); 
-    }); 
-    window.addEventListener('keyup', e => { pressedKeys[e.key] = false; });
-    document.getElementById('start-btn').addEventListener('click', startGame); 
-    document.getElementById('restart-win').addEventListener('click', startGame); 
-    document.getElementById('restart-lose').addEventListener('click', startGame); 
-    canvas.addEventListener('click', () => { if (state.gameOver) startGame(); });
+    let pressedKeys = {}; window.addEventListener('keydown', e => { pressedKeys[e.key] = true; if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault(); if (state.gameOver) startGame(); }); window.addEventListener('keyup', e => { pressedKeys[e.key] = false; });
+    document.getElementById('start-btn').addEventListener('click', startGame); document.getElementById('restart-win').addEventListener('click', startGame); document.getElementById('restart-lose').addEventListener('click', startGame); canvas.addEventListener('click', () => { if (state.gameOver) startGame(); });
+    function resizeCanvas() { const s = Math.min(window.innerWidth / CONFIG.width, window.innerHeight / CONFIG.height) * 0.98; canvas.style.transform = `scale(${s})`; canvas.style.transformOrigin = 'center'; } window.addEventListener('resize', resizeCanvas); resizeCanvas();
     
-    function resizeCanvas() { 
-      const s = Math.min(window.innerWidth / CONFIG.width, window.innerHeight / CONFIG.height) * 0.98; 
-      canvas.style.transform = `scale(${s})`; canvas.style.transformOrigin = 'center'; 
-    } 
-    window.addEventListener('resize', resizeCanvas); resizeCanvas();
-    
-    // Запуск
-    loadAllSVGs().then(() => gameLoop());
+    loadAllSVGs().then(() => gameLoop()).catch(() => gameLoop());
   </script>
 </body>
 </html>
