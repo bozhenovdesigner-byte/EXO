@@ -94,12 +94,12 @@ function updateDebug() {
 }
 
 window.addEventListener('keydown', e => {
-  if (e.key === 'F2') {
+  if (e.key === 'F2' || e.key === 'Backquote') {
     e.preventDefault();
     debugPanelVisible = !debugPanelVisible;
     debugPanel.style.display = debugPanelVisible ? 'block' : 'none';
   }
-  if (e.key === 'F3') {
+  if (e.key === 'F3' || e.key === 'Backslash') {
     e.preventDefault();
     if (enemy.investigate) enemy.investigate = null;
     enemy.wf.active = false;
