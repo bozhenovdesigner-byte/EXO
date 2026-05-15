@@ -41,42 +41,88 @@ export function moveWithCollision(obj, dx, dy, sp) {
   obj.y = Math.max(obj.radius + 2, Math.min(CONFIG.height - obj.radius - 2, obj.y));
 }
 
+export function canMoveTo(obj, nx, ny) {
+  const r = obj.radius * 0.7;
+  for (const w of walls) {
+    if (circleRectCollision(nx, ny, r, w)) return false;
+  }
+  return true;
+}
 
 export function moveEnemy(obj, dx, dy, sp) {
   const r = obj.radius * 0.7;
-  const tryMove = (ndx, ndy) => {
-    const nx = obj.x + ndx * sp;
-    const ny = obj.y + ndy * sp;
-    for (const w of walls) {
-      if (circleRectCollision(nx, ny, r, w)) return false;
-    }
+  const nx = obj.x + dx * sp;
+  const ny = obj.y + dy * sp;
+
+  // 1. Full diagonal
+  let blocked = false;
+  for (const w of walls) {
+    if (circleRectCollision(nx, ny, r, w)) { blocked = true; break; }
+  }
+  if (!blocked) {
     obj.x = nx; obj.y = ny;
     obj.x = Math.max(r + 2, Math.min(CONFIG.width - r - 2, obj.x));
     obj.y = Math.max(r + 2, Math.min(CONFIG.height - r - 2, obj.y));
     return true;
-  };
+  }
 
-  // 1. Try full diagonal movement
-  if (tryMove(dx, dy)) return true;
+  // 2. X-only
+  let canX = true;
+  for (const w of walls) {
+    if (circleRectCollision(obj.x + dx * sp, obj.y, r, w)) { canX = false; break; }
+  }
+  if (canX) {
+    obj.x += dx * sp;
+    obj.x = Math.max(r + 2, Math.min(CONFIG.width - r - 2, obj.x));
+  }
 
-  // 2. Wall sliding: X-only, then Y-only
-  let moved = false;
-  if (tryMove(dx, 0)) moved = true;
-  if (tryMove(0, dy)) moved = true;
-  if (moved) return true;
+  // 3. Y-only
+  let canY = true;
+  for (const w of walls) {
+    if (circleRectCollision(obj.x, obj.y + dy * sp, r, w)) { canY = false; break; }
+  }
+  if (canY) {
+    obj.y += dy * sp;
+    obj.y = Math.max(r + 2, Math.min(CONFIG.height - r - 2, obj.y));
+  }
 
-  // 3. Corner nudge: try ±30° from original direction
+  if (canX || canY) return true;
+
+  // 4. Corner nudge ±30°
   const angle = Math.atan2(dy, dx);
   for (const offset of [0.52, -0.52]) {
     const a = angle + offset;
-    if (tryMove(Math.cos(a), Math.sin(a))) return true;
+    const cx = obj.x + Math.cos(a) * sp;
+    const cy = obj.y + Math.sin(a) * sp;
+    let ok = true;
+    for (const w of walls) {
+      if (circleRectCollision(cx, cy, r, w)) { ok = false; break; }
+    }
+    if (ok) {
+      obj.x = cx; obj.y = cy;
+      obj.x = Math.max(r + 2, Math.min(CONFIG.width - r - 2, obj.x));
+      obj.y = Math.max(r + 2, Math.min(CONFIG.height - r - 2, obj.y));
+      return true;
+    }
   }
 
-  // 4. Desperate nudge: try perpendicular directions
-  const perp1 = Math.atan2(dy, dx) + Math.PI / 2;
-  const perp2 = Math.atan2(dy, dx) - Math.PI / 2;
-  if (tryMove(Math.cos(perp1), Math.sin(perp1))) return true;
-  if (tryMove(Math.cos(perp2), Math.sin(perp2))) return true;
+  // 5. Perpendicular
+  const perp1 = angle + Math.PI / 2;
+  const perp2 = angle - Math.PI / 2;
+  for (const a of [perp1, perp2]) {
+    const cx = obj.x + Math.cos(a) * sp;
+    const cy = obj.y + Math.sin(a) * sp;
+    let ok = true;
+    for (const w of walls) {
+      if (circleRectCollision(cx, cy, r, w)) { ok = false; break; }
+    }
+    if (ok) {
+      obj.x = cx; obj.y = cy;
+      obj.x = Math.max(r + 2, Math.min(CONFIG.width - r - 2, obj.x));
+      obj.y = Math.max(r + 2, Math.min(CONFIG.height - r - 2, obj.y));
+      return true;
+    }
+  }
 
   return false;
 }

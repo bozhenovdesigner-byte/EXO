@@ -1,7 +1,7 @@
 import { CONFIG } from '../config.js';
 import { state } from '../state.js';
 import { player } from './player.js';
-import { moveEnemy, lineIntersectsWall } from '../level/walls.js';
+import { moveEnemy, canMoveTo, lineIntersectsWall } from '../level/walls.js';
 import { playTone } from '../audio/sfx.js';
 import { handleDeath } from '../ui/death.js';
 
@@ -15,11 +15,7 @@ export function isInEnemyVision() {
   const dx = player.x - enemy.x, dy = player.y - enemy.y, dist = Math.hypot(dx, dy);
   if (dist > CONFIG.enemyVisionRange) return false;
   if (lineIntersectsWall(enemy.x, enemy.y, player.x, player.y)) return false;
-  const angleToPlayer = Math.atan2(dy, dx);
-  let angleDiff = Math.abs(angleToPlayer - enemy.direction);
-  if (angleDiff > Math.PI) angleDiff = Math.PI * 2 - angleDiff;
-  const effectiveAngle = dist < 100 ? 360 : (dist < 150 ? CONFIG.enemyVisionAngle * 1.5 : CONFIG.enemyVisionAngle);
-  return angleDiff < (effectiveAngle / 2) * Math.PI / 180;
+  return true;
 }
 
 export function updateEnemy() {
@@ -28,10 +24,44 @@ export function updateEnemy() {
   enemy.lastX = enemy.x; enemy.lastY = enemy.y;
 
   if (enemy.investigate) {
-    const dx = enemy.investigate.x - enemy.x, dy = enemy.investigate.y - enemy.y, len = Math.hypot(dx, dy) || 1;
+    const dx = enemy.investigate.x - enemy.x;
+    const dy = enemy.investigate.y - enemy.y;
+    const len = Math.hypot(dx, dy) || 1;
+
     if (len > 4) {
-      moveEnemy(enemy, dx / len, dy / len, CONFIG.enemyChaseSpeed);
+      const moved = moveEnemy(enemy, dx / len, dy / len, CONFIG.enemyChaseSpeed);
       enemy.direction = Math.atan2(dy, dx);
+
+      if (!moved) {
+        // Fan-out: search free direction that minimizes distance to target
+        const baseAngle = Math.atan2(dy, dx);
+        const sp = CONFIG.enemyChaseSpeed;
+        let bestAngle = null;
+        let bestDist = Infinity;
+
+        for (let i = -12; i <= 12; i++) {
+          const a = baseAngle + i * 0.12;
+          const nx = enemy.x + Math.cos(a) * sp;
+          const ny = enemy.y + Math.sin(a) * sp;
+          if (canMoveTo(enemy, nx, ny)) {
+            const d = Math.hypot(enemy.investigate.x - nx, enemy.investigate.y - ny);
+            if (d < bestDist) {
+              bestDist = d;
+              bestAngle = a;
+            }
+          }
+        }
+
+        if (bestAngle !== null) {
+          enemy.x += Math.cos(bestAngle) * sp;
+          enemy.y += Math.sin(bestAngle) * sp;
+          enemy.direction = bestAngle;
+        } else {
+          // Completely stuck — strong bounce
+          enemy.x -= (dx / len) * 15;
+          enemy.y -= (dy / len) * 15;
+        }
+      }
     } else {
       const toPx = player.x - enemy.x, toPy = player.y - enemy.y;
       if (Math.hypot(toPx, toPy) < CONFIG.enemyVisionRange) enemy.direction = Math.atan2(toPy, toPx);
@@ -44,6 +74,7 @@ export function updateEnemy() {
     return;
   }
 
+  // Patrol mode
   enemy.patrol.angle += 0.006;
   const tx = enemy.patrol.x + Math.cos(enemy.patrol.angle) * enemy.patrol.radius;
   const ty = enemy.patrol.y + Math.sin(enemy.patrol.angle) * enemy.patrol.radius;
@@ -55,15 +86,9 @@ export function updateEnemy() {
     if (!moved) {
       enemy.stuckFrames++;
       if (enemy.stuckFrames > 30) {
-        // Strong bounce away from wall + randomize patrol
         const bounce = 18;
-        const backX = -(dx / len) * bounce;
-        const backY = -(dy / len) * bounce;
-        // Try perpendicular bounces if back is blocked
-        const perpX = -(dy / len) * bounce;
-        const perpY =  (dx / len) * bounce;
-        enemy.x += backX;
-        enemy.y += backY;
+        enemy.x -= (dx / len) * bounce;
+        enemy.y -= (dy / len) * bounce;
         enemy.patrol.angle += Math.PI + (Math.random() - 0.5) * 1.2;
         enemy.stuckFrames = 0;
       }
