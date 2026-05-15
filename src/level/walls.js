@@ -40,3 +40,37 @@ export function moveWithCollision(obj, dx, dy, sp) {
   obj.x = Math.max(obj.radius + 2, Math.min(CONFIG.width - obj.radius - 2, obj.x));
   obj.y = Math.max(obj.radius + 2, Math.min(CONFIG.height - obj.radius - 2, obj.y));
 }
+
+
+export function moveEnemy(obj, dx, dy, sp) {
+  const r = obj.radius * 0.7;  // reduced hitbox
+  const nx = obj.x + dx * sp;
+  const ny = obj.y + dy * sp;
+
+  // Full movement check
+  let blocked = false;
+  for (const w of walls) {
+    if (circleRectCollision(nx, ny, r, w)) { blocked = true; break; }
+  }
+  if (!blocked) {
+    obj.x = nx;
+    obj.y = ny;
+    obj.x = Math.max(r + 2, Math.min(CONFIG.width - r - 2, obj.x));
+    obj.y = Math.max(r + 2, Math.min(CONFIG.height - r - 2, obj.y));
+    return true;
+  }
+
+  // Wall sliding: try X-only, then Y-only
+  let canX = true, canY = true;
+  for (const w of walls) {
+    if (circleRectCollision(nx, obj.y, r, w)) canX = false;
+    if (circleRectCollision(obj.x, ny, r, w)) canY = false;
+  }
+  let moved = false;
+  if (canX) { obj.x = nx; moved = true; }
+  if (canY) { obj.y = ny; moved = true; }
+
+  obj.x = Math.max(r + 2, Math.min(CONFIG.width - r - 2, obj.x));
+  obj.y = Math.max(r + 2, Math.min(CONFIG.height - r - 2, obj.y));
+  return moved;
+}

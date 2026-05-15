@@ -1,7 +1,7 @@
 import { CONFIG } from '../config.js';
 import { state } from '../state.js';
 import { player } from './player.js';
-import { walls, moveWithCollision, lineIntersectsWall } from '../level/walls.js';
+import { moveEnemy, lineIntersectsWall } from '../level/walls.js';
 import { playTone } from '../audio/sfx.js';
 import { handleDeath } from '../ui/death.js';
 
@@ -30,7 +30,7 @@ export function updateEnemy() {
   if (enemy.investigate) {
     const dx = enemy.investigate.x - enemy.x, dy = enemy.investigate.y - enemy.y, len = Math.hypot(dx, dy) || 1;
     if (len > 4) {
-      moveWithCollision(enemy, dx / len, dy / len, CONFIG.enemyChaseSpeed);
+      moveEnemy(enemy, dx / len, dy / len, CONFIG.enemyChaseSpeed);
       enemy.direction = Math.atan2(dy, dx);
     } else {
       const toPx = player.x - enemy.x, toPy = player.y - enemy.y;
@@ -44,18 +44,29 @@ export function updateEnemy() {
     return;
   }
 
-  const moved = Math.hypot(enemy.x - enemy.lastX, enemy.y - enemy.lastY);
-  if (moved < 0.3) {
-    enemy.stuckFrames++;
-    if (enemy.stuckFrames > 60) { enemy.patrol.angle += Math.PI / 2 + (Math.random() - 0.5) * 0.5; enemy.stuckFrames = 0; }
-  } else enemy.stuckFrames = 0;
-
   enemy.patrol.angle += 0.006;
   const tx = enemy.patrol.x + Math.cos(enemy.patrol.angle) * enemy.patrol.radius;
   const ty = enemy.patrol.y + Math.sin(enemy.patrol.angle) * enemy.patrol.radius;
   const dx = tx - enemy.x, dy = ty - enemy.y, len = Math.hypot(dx, dy) || 1;
-  if (len > 3) { moveWithCollision(enemy, dx / len, dy / len, CONFIG.enemyPatrolSpeed); enemy.direction = Math.atan2(dy, dx); }
-  else if (Math.random() < 0.01) enemy.patrol.angle += (Math.random() - 0.5) * 1.5;
+
+  if (len > 3) {
+    const moved = moveEnemy(enemy, dx / len, dy / len, CONFIG.enemyPatrolSpeed);
+    enemy.direction = Math.atan2(dy, dx);
+    if (!moved) {
+      enemy.stuckFrames++;
+      if (enemy.stuckFrames > 40) {
+        // 180° turn + micro-bounce
+        enemy.patrol.angle += Math.PI + (Math.random() - 0.5) * 0.5;
+        enemy.x -= (dx / len) * 4;
+        enemy.y -= (dy / len) * 4;
+        enemy.stuckFrames = 0;
+      }
+    } else {
+      enemy.stuckFrames = 0;
+    }
+  } else if (Math.random() < 0.01) {
+    enemy.patrol.angle += (Math.random() - 0.5) * 1.5;
+  }
 
   const toPx = player.x - enemy.x, toPy = player.y - enemy.y;
   if (Math.hypot(toPx, toPy) < CONFIG.enemyVisionRange * 0.7) enemy.direction = Math.atan2(toPy, toPx);
