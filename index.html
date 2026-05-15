@@ -6,67 +6,181 @@
   <title>ЭХО • Хоррор</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #000; color: #0f0; font-family: 'Courier New', monospace; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; user-select: none; }
-    
-    /* 🔥 КОНТЕЙНЕР ДЛЯ GIF + CANVAS (800×600) */
+    body {
+      background: #000;
+      color: #0f0;
+      font-family: 'Courier New', Courier, monospace;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      user-select: none;
+    }
+
+    /* ==================== СТАРТОВЫЙ ЭКРАН (fullscreen) ==================== */
+    #start-screen-wrapper {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    #start-bg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: contrast(1.2) brightness(0.5) saturate(0.3);
+      opacity: 0.65;
+      image-rendering: pixelated;
+      z-index: 0;
+    }
+    #start-scanlines {
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, rgba(0,0,0,0.12), rgba(0,0,0,0.12) 1px, transparent 1px, transparent 2px);
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0.7;
+    }
+    #start-vignette {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.85) 100%);
+      opacity: 0.6;
+    }
+    #start-screen {
+      position: relative;
+      z-index: 10;
+      background: rgba(0, 15, 0, 0.82);
+      color: #0f0;
+      padding: 35px 45px;
+      text-align: center;
+      border: 2px solid #0f0;
+      max-width: 520px;
+      width: 90%;
+      box-shadow: 0 0 40px rgba(0,255,0,0.25), inset 0 0 30px rgba(0,255,0,0.08);
+      backdrop-filter: blur(2px);
+    }
+    #start-screen h1 {
+      margin-bottom: 20px;
+      font-size: 42px;
+      letter-spacing: 8px;
+      text-shadow: 0 0 10px #0f0, 0 0 30px rgba(0,255,0,0.5);
+      animation: flicker 3s infinite;
+    }
+    @keyframes flicker {
+      0%, 100% { opacity: 1; text-shadow: 0 0 10px #0f0, 0 0 30px rgba(0,255,0,0.5); }
+      50% { opacity: 0.9; text-shadow: 0 0 5px #0f0, 0 0 15px rgba(0,255,0,0.3); }
+      70% { opacity: 0.95; }
+      85% { opacity: 0.85; }
+    }
+    .start-instructions {
+      border-top: 1px solid rgba(0,255,0,0.25);
+      border-bottom: 1px solid rgba(0,255,0,0.25);
+      padding: 14px 0;
+      margin: 18px 0;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .start-instructions p { margin: 6px 0; }
+    #start-screen .warning {
+      color: #f66;
+      font-weight: bold;
+      margin-top: 14px;
+      font-size: 13px;
+      text-shadow: 0 0 5px rgba(255,0,0,0.4);
+    }
+    #svg-status {
+      font-size: 11px;
+      opacity: 0.6;
+      margin-top: 12px;
+      letter-spacing: 1px;
+    }
+    #start-btn {
+      margin-top: 24px;
+      padding: 14px 36px;
+      background: #0f0;
+      color: #000;
+      border: none;
+      font-family: 'Courier New', monospace;
+      font-weight: bold;
+      font-size: 15px;
+      cursor: pointer;
+      letter-spacing: 2px;
+      transition: all 0.15s;
+      text-transform: uppercase;
+    }
+    #start-btn:hover {
+      background: #0c0;
+      box-shadow: 0 0 20px #0f0, 0 0 40px rgba(0,255,0,0.3);
+      transform: scale(1.05);
+    }
+
+    /* ==================== ИГРОВОЙ КОНТЕЙНЕР ==================== */
     #game-container {
       position: relative;
       width: 800px;
       height: 600px;
+      display: none; /* показывается после старта */
     }
-    
-    /* 🔥 ФОНОВЫЙ GIF (размер canvas) */
-    #bg-gif {
-      position: absolute;
-      top: 0; left: 0;
-      width: 800px;
-      height: 600px;
-      object-fit: cover;
-      z-index: 0;
-      opacity: 0.5;
-      filter: contrast(1.2) brightness(0.6) saturate(0.4);
-      border: 2px solid #0f0;
-      box-shadow: 0 0 20px #0f0, inset 0 0 30px rgba(0,255,0,0.1);
-    }
-    
     canvas {
       position: absolute;
       top: 0; left: 0;
       image-rendering: pixelated;
       z-index: 1;
-      opacity: 0;  /* Скрыт пока игра не начата */
+      opacity: 0;
       transition: opacity 0.3s;
     }
     canvas.visible { opacity: 1; }
-    
+
     #ui { position: absolute; top: 10px; left: 10px; font-size: 13px; text-shadow: 0 0 5px #0f0; pointer-events: none; line-height: 1.4; z-index: 4; }
     #lives { position: absolute; top: 10px; right: 10px; font-size: 20px; pointer-events: none; text-shadow: 0 0 8px #f00; letter-spacing: 4px; transition: color 0.3s; z-index: 4; }
     #level-indicator { position: absolute; top: 38px; right: 10px; font-size: 11px; color: #6f6; pointer-events: none; text-shadow: 0 0 3px #0f0; z-index: 4; }
     #message { position: absolute; bottom: 30px; width: 100%; text-align: center; font-size: 15px; color: #f66; text-shadow: 0 0 10px #f00; opacity: 0; transition: opacity 0.2s; pointer-events: none; font-weight: bold; letter-spacing: 1px; z-index: 4; }
     #message.show { opacity: 1; }
-    
-    #start-screen, #win-screen, #lose-screen, #level-screen { 
-      position: absolute; 
-      background: rgba(0,0,0,0.8); 
-      color: #0f0; 
-      padding: 25px 30px; 
-      text-align: center; 
-      border: 2px solid #0f0; 
-      max-width: 480px; 
-      z-index: 10; 
+
+    /* Общий стиль для внутриигровых экранов */
+    .screen {
+      position: absolute;
+      background: rgba(0,0,0,0.85);
+      color: #0f0;
+      padding: 25px 30px;
+      text-align: center;
+      border: 2px solid #0f0;
+      max-width: 480px;
+      z-index: 10;
       box-shadow: 0 0 40px rgba(0,255,0,0.3);
-      /* Центрирование */
+      backdrop-filter: blur(2px);
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
     }
-    #start-screen h1, #win-screen h1, #lose-screen h1, #level-screen h1 { margin-bottom: 15px; font-size: 28px; letter-spacing: 3px; }
-    #start-screen p, #win-screen p, #lose-screen p, #level-screen p { margin: 8px 0; font-size: 13px; opacity: 0.9; }
-    #start-screen .warning { color: #f66; font-weight: bold; margin-top: 12px; }
-    #start-screen button, #win-screen button, #lose-screen button, #level-screen button { margin-top: 20px; padding: 12px 28px; background: #0f0; color: #000; border: none; font-family: inherit; font-weight: bold; font-size: 14px; cursor: pointer; letter-spacing: 1px; transition: all 0.1s; }
-    #start-screen button:hover, #win-screen button:hover, #lose-screen button:hover, #level-screen button:hover { background: #0c0; box-shadow: 0 0 15px #0f0; transform: scale(1.03); }
+    .screen h1 { margin-bottom: 15px; font-size: 28px; letter-spacing: 3px; }
+    .screen p { margin: 8px 0; font-size: 13px; opacity: 0.9; }
+    .screen button {
+      margin-top: 20px;
+      padding: 12px 28px;
+      background: #0f0;
+      color: #000;
+      border: none;
+      font-family: inherit;
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: all 0.1s;
+    }
+    .screen button:hover { background: #0c0; box-shadow: 0 0 15px #0f0; transform: scale(1.03); }
     .hidden { display: none !important; }
-    
-    /* CRT scanlines поверх всего */
+
+    /* CRT scanlines поверх игры */
     #scanlines {
       position: absolute;
       top: 0; left: 0;
@@ -76,11 +190,11 @@
       z-index: 3;
       opacity: 0.7;
     }
-    #vignette { 
-      position: absolute; top: 0; left: 0; width: 800px; height: 600px; 
-      pointer-events: none; z-index: 2; 
-      background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.85) 100%); 
-      opacity: 0.6; transition: opacity 0.3s; 
+    #vignette {
+      position: absolute; top: 0; left: 0; width: 800px; height: 600px;
+      pointer-events: none; z-index: 2;
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.85) 100%);
+      opacity: 0.6; transition: opacity 0.3s;
     }
     .hold-bar { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); width: 200px; height: 6px; background: rgba(0,50,0,0.8); border: 1px solid #0f0; display: none; z-index: 8; }
     .hold-bar-fill { height: 100%; width: 0%; background: #0f0; transition: width 0.05s linear; }
@@ -89,53 +203,58 @@
   </style>
 </head>
 <body>
-  <!-- 🔥 КОНТЕЙНЕР 800×600 -->
+
+  <!-- ==================== СТАРТОВЫЙ ЭКРАН ==================== -->
+  <div id="start-screen-wrapper">
+    <img id="start-bg" src="intro.gif" alt="">
+    <div id="start-scanlines"></div>
+    <div id="start-vignette"></div>
+
+    <div id="start-screen">
+      <h1>ЭХО</h1>
+      <div class="start-instructions">
+        <p>WASD / стрелки — движение</p>
+        <p>SPACE — эхо (видишь окружение)</p>
+        <p>SHIFT — задержка дыхания (не двигаться)</p>
+        <p>🗝️ Найди все карты → выйди через дверь</p>
+      </div>
+      <p class="warning">⚠️ ОНА слышит каждое эхо...<<br>и видит тебя, если подойдёшь близко</p>
+      <p id="svg-status">Загрузка...</p>
+      <button id="start-btn">НАЧАТЬ</button>
+    </div>
+  </div>
+
+  <!-- ==================== ИГРА ==================== -->
   <div id="game-container">
-    <!-- GIF на фоне -->
-    <img id="bg-gif" src="intro.gif" alt="">
-    
     <canvas id="game" width="800" height="600"></canvas>
     <div id="scanlines"></div>
     <div id="vignette"></div>
     <div class="hold-bar"><div class="hold-bar-fill" id="hold-fill"></div></div>
-    
+
     <div id="ui">🗝️ Карты: <span id="cards">0</span>/<span id="cards-total">3</span></div>
     <div id="lives">♥♥♥</div>
     <div id="level-indicator">УРОВЕНЬ 1</div>
     <div id="message"></div>
 
-    <div id="start-screen">
-      <h1>ЭХО</h1>
-      <p>WASD / стрелки — движение</p>
-      <p>SPACE — эхо (видишь окружение)</p>
-      <p>SHIFT — задержка дыхания (не двигаться)</p>
-      <p style="margin-top:12px">🗝️ Найди все карты → выйди через дверь</p>
-      <p class="warning">⚠️ ОНА слышит каждое эхо...<br>и видит тебя, если подойдёшь близко</p>
-      <p style="font-size:11px; opacity:0.6; margin-top:8px" id="svg-status">Загрузка...</p>
-      <button id="start-btn">НАЧАТЬ</button>
-    </div>
-
-    <div id="level-screen" class="hidden">
+    <div id="level-screen" class="hidden screen">
       <h1 id="level-title">УРОВЕНЬ 2</h1>
       <p id="level-desc">4 карты • ОНА быстрее</p>
       <button id="level-next-btn">ПРОДОЛЖИТЬ</button>
     </div>
 
-    <div id="win-screen" class="hidden">
+    <div id="win-screen" class="hidden screen">
       <h1>✓ ТЫ ВЫШЕЛ</h1>
       <p>Ты обманул Её... на этот раз.</p>
       <p style="font-size:11px; opacity:0.7; margin-top:10px">Но эхо остаётся в стенах.</p>
       <button id="restart-win">НАЧАТЬ ЗАНОВО</button>
     </div>
 
-    <div id="lose-screen" class="hidden">
+    <div id="lose-screen" class="hidden screen">
       <h1 style="color:#f00">✗ ОНА ТЕБЯ НАШЛА</h1>
       <p id="death-message">Слишком громко. Слишком близко.</p>
       <button id="restart-lose">ПОПРОБОВАТЬ СНОВА</button>
     </div>
   </div>
-
-  <script async src="https://vibej.am/2026/widget.js"></script>
 
   <script>
     const LEVELS = [
@@ -189,7 +308,7 @@
     
     async function loadAllSVGs() {
       const status = document.getElementById('svg-status');
-      status.textContent = ' Проверка ресурсов...';
+      status.textContent = 'Проверка ресурсов...';
       const [m, p, e, c] = await Promise.all([loadSVG('map.svg').catch(()=>null), loadSVG('player.svg').catch(()=>null), loadSVG('enemy.svg').catch(()=>null), loadSVG('card.svg').catch(()=>null)]);
       let loaded = [];
       if (m) { svgAssets.map = m; loaded.push('карта'); }
@@ -422,6 +541,7 @@
       } else {
         playLose();
         showMessage(`♥ Осталось жизней: ${state.lives}`, 1500);
+        state.running = false; // <-- FIX: останавливаем игру на время респавна
         setTimeout(() => { 
           state.isDead = false;
           generateLevel(); 
@@ -504,13 +624,17 @@
       initAudio(); 
       state.currentLevel = 0; state.lives = CONFIG.maxLives; state.transitioning = false; state.isDead = false;
       updateLivesUI(); generateLevel(); state.running = true; state.gameOver = false; state.win = false; 
-      document.getElementById('start-screen').classList.add('hidden'); 
+      
+      document.getElementById('start-screen-wrapper').style.display = 'none';
+      document.getElementById('game-container').style.display = 'block';
+      
       document.getElementById('win-screen').classList.add('hidden'); 
       document.getElementById('lose-screen').classList.add('hidden');
       document.getElementById('level-screen').classList.add('hidden');
-      document.getElementById('bg-gif').style.display = 'none';
-      canvas.classList.add('visible');  // Показываем canvas
+      
+      canvas.classList.add('visible');
       pressedKeys = {}; holdBar.style.display = 'none'; 
+      resizeCanvas();
       if (audioCtx) setTimeout(playAmbient, 2000); 
     }
 
@@ -536,7 +660,7 @@
     function resizeCanvas() { 
       const s = Math.min(window.innerWidth / CONFIG.width, window.innerHeight / CONFIG.height) * 0.98; 
       container.style.transform = `scale(${s})`; 
-      container.style.transformOrigin = 'center'; 
+      container.style.transformOrigin = 'center center'; 
     } 
     window.addEventListener('resize', resizeCanvas); resizeCanvas();
     
