@@ -54,11 +54,17 @@ export function updateEnemy() {
     enemy.direction = Math.atan2(dy, dx);
     if (!moved) {
       enemy.stuckFrames++;
-      if (enemy.stuckFrames > 40) {
-        // 180° turn + micro-bounce
-        enemy.patrol.angle += Math.PI + (Math.random() - 0.5) * 0.5;
-        enemy.x -= (dx / len) * 4;
-        enemy.y -= (dy / len) * 4;
+      if (enemy.stuckFrames > 30) {
+        // Strong bounce away from wall + randomize patrol
+        const bounce = 18;
+        const backX = -(dx / len) * bounce;
+        const backY = -(dy / len) * bounce;
+        // Try perpendicular bounces if back is blocked
+        const perpX = -(dy / len) * bounce;
+        const perpY =  (dx / len) * bounce;
+        enemy.x += backX;
+        enemy.y += backY;
+        enemy.patrol.angle += Math.PI + (Math.random() - 0.5) * 1.2;
         enemy.stuckFrames = 0;
       }
     } else {

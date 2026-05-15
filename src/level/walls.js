@@ -43,34 +43,40 @@ export function moveWithCollision(obj, dx, dy, sp) {
 
 
 export function moveEnemy(obj, dx, dy, sp) {
-  const r = obj.radius * 0.7;  // reduced hitbox
-  const nx = obj.x + dx * sp;
-  const ny = obj.y + dy * sp;
-
-  // Full movement check
-  let blocked = false;
-  for (const w of walls) {
-    if (circleRectCollision(nx, ny, r, w)) { blocked = true; break; }
-  }
-  if (!blocked) {
-    obj.x = nx;
-    obj.y = ny;
+  const r = obj.radius * 0.7;
+  const tryMove = (ndx, ndy) => {
+    const nx = obj.x + ndx * sp;
+    const ny = obj.y + ndy * sp;
+    for (const w of walls) {
+      if (circleRectCollision(nx, ny, r, w)) return false;
+    }
+    obj.x = nx; obj.y = ny;
     obj.x = Math.max(r + 2, Math.min(CONFIG.width - r - 2, obj.x));
     obj.y = Math.max(r + 2, Math.min(CONFIG.height - r - 2, obj.y));
     return true;
-  }
+  };
 
-  // Wall sliding: try X-only, then Y-only
-  let canX = true, canY = true;
-  for (const w of walls) {
-    if (circleRectCollision(nx, obj.y, r, w)) canX = false;
-    if (circleRectCollision(obj.x, ny, r, w)) canY = false;
-  }
+  // 1. Try full diagonal movement
+  if (tryMove(dx, dy)) return true;
+
+  // 2. Wall sliding: X-only, then Y-only
   let moved = false;
-  if (canX) { obj.x = nx; moved = true; }
-  if (canY) { obj.y = ny; moved = true; }
+  if (tryMove(dx, 0)) moved = true;
+  if (tryMove(0, dy)) moved = true;
+  if (moved) return true;
 
-  obj.x = Math.max(r + 2, Math.min(CONFIG.width - r - 2, obj.x));
-  obj.y = Math.max(r + 2, Math.min(CONFIG.height - r - 2, obj.y));
-  return moved;
+  // 3. Corner nudge: try ±30° from original direction
+  const angle = Math.atan2(dy, dx);
+  for (const offset of [0.52, -0.52]) {
+    const a = angle + offset;
+    if (tryMove(Math.cos(a), Math.sin(a))) return true;
+  }
+
+  // 4. Desperate nudge: try perpendicular directions
+  const perp1 = Math.atan2(dy, dx) + Math.PI / 2;
+  const perp2 = Math.atan2(dy, dx) - Math.PI / 2;
+  if (tryMove(Math.cos(perp1), Math.sin(perp1))) return true;
+  if (tryMove(Math.cos(perp2), Math.sin(perp2))) return true;
+
+  return false;
 }
