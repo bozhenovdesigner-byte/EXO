@@ -2,14 +2,15 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>ЭХО • Хоррор</title>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background: #000;
       color: #0f0;
-      font-family: 'Courier New', Courier, monospace;
+      font-family: 'VT323', 'Courier New', monospace;
       overflow: hidden;
       display: flex;
       justify-content: center;
@@ -18,105 +19,172 @@
       user-select: none;
     }
 
-    /* ==================== СТАРТОВЫЙ ЭКРАН (fullscreen) ==================== */
+    /* ==================== ЕДИНЫЙ КОНТЕЙНЕР 800×600 ==================== */
     #start-screen-wrapper {
-      position: fixed;
-      inset: 0;
-      z-index: 50;
-      background: #000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      position: relative;
+      width: 800px;
+      height: 600px;
       overflow: hidden;
+      background: #000;
+      border: 2px solid #0f0;
+      box-shadow: 0 0 40px rgba(0,255,0,0.2);
     }
+    
+    /* Фоновый GIF — всегда видим, без фильтров затемнения */
     #start-bg {
       position: absolute;
       top: 0; left: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;
-      filter: contrast(1.2) brightness(0.5) saturate(0.3);
-      opacity: 0.65;
       image-rendering: pixelated;
       z-index: 0;
+      opacity: 0; /* стартовая невидимость, JS включает */
+      transition: opacity 0.1s;
     }
+    
+    /* Затемнение — отдельный слой */
+    #start-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 8, 0, 0.55);
+      z-index: 1;
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+    
+    /* CRT scanlines */
     #start-scanlines {
       position: absolute;
       inset: 0;
-      background: repeating-linear-gradient(0deg, rgba(0,0,0,0.12), rgba(0,0,0,0.12) 1px, transparent 1px, transparent 2px);
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,0.15) 0px,
+        rgba(0,0,0,0.15) 1px,
+        transparent 1px,
+        transparent 3px
+      );
       pointer-events: none;
       z-index: 2;
-      opacity: 0.7;
+      opacity: 0;
+      transition: opacity 0.5s;
     }
+    
+    /* Vignette */
     #start-vignette {
       position: absolute;
       inset: 0;
       pointer-events: none;
-      z-index: 1;
-      background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.85) 100%);
-      opacity: 0.6;
+      z-index: 3;
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.9) 100%);
+      opacity: 0;
+      transition: opacity 0.5s;
     }
-    #start-screen {
-      position: relative;
-      z-index: 10;
-      background: rgba(0, 15, 0, 0.82);
-      color: #0f0;
-      padding: 35px 45px;
-      text-align: center;
+    
+    /* Белая вспышка — отдельный слой */
+    #white-flash {
+      position: absolute;
+      inset: 0;
+      background: #fff;
+      opacity: 0;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    /* ==================== МЕНЮ (1/4 области = 400×300) ==================== */
+    #start-menu {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 400px;
+      height: 300px;
+      background: rgba(0, 15, 0, 0.88);
       border: 2px solid #0f0;
-      max-width: 520px;
-      width: 90%;
-      box-shadow: 0 0 40px rgba(0,255,0,0.25), inset 0 0 30px rgba(0,255,0,0.08);
-      backdrop-filter: blur(2px);
+      padding: 20px 25px;
+      text-align: center;
+      z-index: 10;
+      box-shadow: 0 0 30px rgba(0,255,0,0.25), inset 0 0 20px rgba(0,255,0,0.08);
+      opacity: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      transition: opacity 0.6s ease-out;
     }
-    #start-screen h1 {
-      margin-bottom: 20px;
-      font-size: 42px;
-      letter-spacing: 8px;
-      text-shadow: 0 0 10px #0f0, 0 0 30px rgba(0,255,0,0.5);
-      animation: flicker 3s infinite;
+    
+    /* Пульсирующая рамка */
+    #start-menu::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border: 2px solid #0f0;
+      opacity: 0.5;
+      animation: borderPulse 2s ease-in-out infinite;
+      pointer-events: none;
     }
-    @keyframes flicker {
-      0%, 100% { opacity: 1; text-shadow: 0 0 10px #0f0, 0 0 30px rgba(0,255,0,0.5); }
-      50% { opacity: 0.9; text-shadow: 0 0 5px #0f0, 0 0 15px rgba(0,255,0,0.3); }
+    @keyframes borderPulse {
+      0%, 100% { opacity: 0.3; box-shadow: 0 0 10px rgba(0,255,0,0.2); }
+      50% { opacity: 0.7; box-shadow: 0 0 25px rgba(0,255,0,0.5); }
+    }
+    
+    #start-menu h1 {
+      font-size: 48px;
+      letter-spacing: 12px;
+      text-shadow: 0 0 10px #0f0, 0 0 30px rgba(0,255,0,0.4);
+      animation: titleFlicker 3s infinite;
+      margin-bottom: 8px;
+      line-height: 1;
+    }
+    @keyframes titleFlicker {
+      0%, 100% { opacity: 1; text-shadow: 0 0 10px #0f0, 0 0 30px rgba(0,255,0,0.4); }
+      50% { opacity: 0.92; text-shadow: 0 0 5px #0f0, 0 0 15px rgba(0,255,0,0.2); }
       70% { opacity: 0.95; }
-      85% { opacity: 0.85; }
+      85% { opacity: 0.88; }
     }
-    .start-instructions {
-      border-top: 1px solid rgba(0,255,0,0.25);
-      border-bottom: 1px solid rgba(0,255,0,0.25);
-      padding: 14px 0;
-      margin: 18px 0;
-      font-size: 14px;
-      line-height: 1.6;
+    
+    .menu-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0,255,0,0.4), transparent);
+      margin: 8px 0;
     }
-    .start-instructions p { margin: 6px 0; }
-    #start-screen .warning {
-      color: #f66;
-      font-weight: bold;
-      margin-top: 14px;
-      font-size: 13px;
-      text-shadow: 0 0 5px rgba(255,0,0,0.4);
-    }
-    #svg-status {
-      font-size: 11px;
-      opacity: 0.6;
-      margin-top: 12px;
+    
+    .menu-instructions {
+      font-size: 16px;
+      line-height: 1.7;
       letter-spacing: 1px;
     }
+    .menu-instructions p { margin: 3px 0; }
+    
+    .menu-warning {
+      color: #f66;
+      font-weight: bold;
+      font-size: 14px;
+      text-shadow: 0 0 5px rgba(255,0,0,0.4);
+      letter-spacing: 1px;
+      line-height: 1.4;
+    }
+    
+    #svg-status {
+      font-size: 12px;
+      opacity: 0.6;
+      letter-spacing: 1px;
+      min-height: 16px;
+    }
+    
     #start-btn {
-      margin-top: 24px;
-      padding: 14px 36px;
+      padding: 10px 32px;
       background: #0f0;
       color: #000;
       border: none;
-      font-family: 'Courier New', monospace;
+      font-family: 'VT323', monospace;
       font-weight: bold;
-      font-size: 15px;
+      font-size: 18px;
       cursor: pointer;
-      letter-spacing: 2px;
+      letter-spacing: 3px;
       transition: all 0.15s;
       text-transform: uppercase;
+      align-self: center;
+      margin-top: 8px;
     }
     #start-btn:hover {
       background: #0c0;
@@ -129,7 +197,7 @@
       position: relative;
       width: 800px;
       height: 600px;
-      display: none; /* показывается после старта */
+      display: none;
     }
     canvas {
       position: absolute;
@@ -141,16 +209,15 @@
     }
     canvas.visible { opacity: 1; }
 
-    #ui { position: absolute; top: 10px; left: 10px; font-size: 13px; text-shadow: 0 0 5px #0f0; pointer-events: none; line-height: 1.4; z-index: 4; }
-    #lives { position: absolute; top: 10px; right: 10px; font-size: 20px; pointer-events: none; text-shadow: 0 0 8px #f00; letter-spacing: 4px; transition: color 0.3s; z-index: 4; }
-    #level-indicator { position: absolute; top: 38px; right: 10px; font-size: 11px; color: #6f6; pointer-events: none; text-shadow: 0 0 3px #0f0; z-index: 4; }
-    #message { position: absolute; bottom: 30px; width: 100%; text-align: center; font-size: 15px; color: #f66; text-shadow: 0 0 10px #f00; opacity: 0; transition: opacity 0.2s; pointer-events: none; font-weight: bold; letter-spacing: 1px; z-index: 4; }
+    #ui { position: absolute; top: 10px; left: 10px; font-size: 16px; text-shadow: 0 0 5px #0f0; pointer-events: none; line-height: 1.4; z-index: 4; font-family: 'VT323', monospace; }
+    #lives { position: absolute; top: 10px; right: 10px; font-size: 24px; pointer-events: none; text-shadow: 0 0 8px #f00; letter-spacing: 4px; transition: color 0.3s; z-index: 4; }
+    #level-indicator { position: absolute; top: 42px; right: 10px; font-size: 14px; color: #6f6; pointer-events: none; text-shadow: 0 0 3px #0f0; z-index: 4; font-family: 'VT323', monospace; }
+    #message { position: absolute; bottom: 30px; width: 100%; text-align: center; font-size: 18px; color: #f66; text-shadow: 0 0 10px #f00; opacity: 0; transition: opacity 0.2s; pointer-events: none; font-weight: bold; letter-spacing: 2px; z-index: 4; font-family: 'VT323', monospace; }
     #message.show { opacity: 1; }
 
-    /* Общий стиль для внутриигровых экранов */
     .screen {
       position: absolute;
-      background: rgba(0,0,0,0.85);
+      background: rgba(0,0,0,0.88);
       color: #0f0;
       padding: 25px 30px;
       text-align: center;
@@ -158,29 +225,28 @@
       max-width: 480px;
       z-index: 10;
       box-shadow: 0 0 40px rgba(0,255,0,0.3);
-      backdrop-filter: blur(2px);
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
+      font-family: 'VT323', monospace;
     }
-    .screen h1 { margin-bottom: 15px; font-size: 28px; letter-spacing: 3px; }
-    .screen p { margin: 8px 0; font-size: 13px; opacity: 0.9; }
+    .screen h1 { margin-bottom: 15px; font-size: 32px; letter-spacing: 4px; }
+    .screen p { margin: 8px 0; font-size: 16px; opacity: 0.9; letter-spacing: 1px; }
     .screen button {
       margin-top: 20px;
       padding: 12px 28px;
       background: #0f0;
       color: #000;
       border: none;
-      font-family: inherit;
+      font-family: 'VT323', monospace;
       font-weight: bold;
-      font-size: 14px;
+      font-size: 16px;
       cursor: pointer;
-      letter-spacing: 1px;
+      letter-spacing: 2px;
       transition: all 0.1s;
     }
     .screen button:hover { background: #0c0; box-shadow: 0 0 15px #0f0; transform: scale(1.03); }
     .hidden { display: none !important; }
 
-    /* CRT scanlines поверх игры */
     #scanlines {
       position: absolute;
       top: 0; left: 0;
@@ -207,20 +273,28 @@
   <!-- ==================== СТАРТОВЫЙ ЭКРАН ==================== -->
   <div id="start-screen-wrapper">
     <img id="start-bg" src="intro.gif" alt="">
+    <div id="start-overlay"></div>
     <div id="start-scanlines"></div>
     <div id="start-vignette"></div>
+    <div id="white-flash"></div>
 
-    <div id="start-screen">
-      <h1>ЭХО</h1>
-      <div class="start-instructions">
-        <p>WASD / стрелки — движение</p>
-        <p>SPACE — эхо (видишь окружение)</p>
-        <p>SHIFT — задержка дыхания (не двигаться)</p>
-        <p>🗝️ Найди все карты → выйди через дверь</p>
+    <div id="start-menu">
+      <div>
+        <h1>ЭХО</h1>
+        <div class="menu-divider"></div>
+        <div class="menu-instructions" id="menu-text">
+          <p>WASD / стрелки — движение</p>
+          <p>SPACE — эхо (видишь окружение)</p>
+          <p>SHIFT — задержка дыхания</p>
+          <p>🗝️ Найди все карты → выйди через дверь</p>
+        </div>
+        <div class="menu-divider"></div>
+        <p class="menu-warning">⚠️ ОНА слышит каждое эхо...<<br>и видит тебя, если подойдёшь близко</p>
       </div>
-      <p class="warning">⚠️ ОНА слышит каждое эхо...<<br>и видит тебя, если подойдёшь близко</p>
-      <p id="svg-status">Загрузка...</p>
-      <button id="start-btn">НАЧАТЬ</button>
+      <div>
+        <p id="svg-status">Загрузка...</p>
+        <button id="start-btn">НАЧАТЬ</button>
+      </div>
     </div>
   </div>
 
@@ -245,7 +319,7 @@
     <div id="win-screen" class="hidden screen">
       <h1>✓ ТЫ ВЫШЕЛ</h1>
       <p>Ты обманул Её... на этот раз.</p>
-      <p style="font-size:11px; opacity:0.7; margin-top:10px">Но эхо остаётся в стенах.</p>
+      <p style="font-size:14px; opacity:0.7; margin-top:10px">Но эхо остаётся в стенах.</p>
       <button id="restart-win">НАЧАТЬ ЗАНОВО</button>
     </div>
 
@@ -257,6 +331,7 @@
   </div>
 
   <script>
+    // ==================== КОНФИГУРАЦИЯ ====================
     const LEVELS = [
       { cards: 3, enemySpeed: 1.3, patrolRadius: 320, echoRadius: 90, name: "БУНКЕР", desc: "3 карты • Стандарт" },
       { cards: 4, enemySpeed: 1.5, patrolRadius: 380, echoRadius: 80, name: "ЛАБИРИНТ", desc: "4 карты • ОНА быстрее" },
@@ -280,7 +355,7 @@
       gameOver: false, win: false, heartbeatTimer: 0, screenPulse: 0,
       holdingCard: null, svgLoaded: false, currentFogRadius: 120,
       currentLevel: 0, lives: 3, transitioning: false,
-      currentEchoRadius: 90, isDead: false
+      currentEchoRadius: 90, isDead: false, initialized: false
     };
 
     const svgAssets = { map: null, player: null, enemy: null, card: null };
@@ -309,18 +384,31 @@
     async function loadAllSVGs() {
       const status = document.getElementById('svg-status');
       status.textContent = 'Проверка ресурсов...';
-      const [m, p, e, c] = await Promise.all([loadSVG('map.svg').catch(()=>null), loadSVG('player.svg').catch(()=>null), loadSVG('enemy.svg').catch(()=>null), loadSVG('card.svg').catch(()=>null)]);
+      const [m, p, e, c] = await Promise.all([
+        loadSVG('map.svg').catch(()=>null),
+        loadSVG('player.svg').catch(()=>null),
+        loadSVG('enemy.svg').catch(()=>null),
+        loadSVG('card.svg').catch(()=>null)
+      ]);
       let loaded = [];
       if (m) { svgAssets.map = m; loaded.push('карта'); }
       if (p) { svgAssets.player = p; svgPaths.player = extractPaths(p, 'player'); loaded.push('игрок'); }
       if (e) { svgAssets.enemy = e; svgPaths.enemy = extractPaths(e, 'enemy'); loaded.push('враг'); }
       if (c) { svgAssets.card = c; svgPaths.card = extractPaths(c, 'card'); loaded.push('артефакт'); }
       state.svgLoaded = loaded.length > 0;
-      status.textContent = loaded.length > 0 ? `✅ Загружено: ${loaded.join(', ')}` : '️ SVG не найдены → используется процедурная генерация';
+      status.textContent = loaded.length > 0 ? `✅ Загружено: ${loaded.join(', ')}` : 'SVG не найдены → процедурная генерация';
       status.style.color = loaded.length > 0 ? '#0f0' : '#6f6';
-      return true;
+      return loaded;
     }
 
+    // ==================== DOM ====================
+    const wrapper = document.getElementById('start-screen-wrapper');
+    const startBg = document.getElementById('start-bg');
+    const startOverlay = document.getElementById('start-overlay');
+    const startScanlines = document.getElementById('start-scanlines');
+    const startVignette = document.getElementById('start-vignette');
+    const whiteFlash = document.getElementById('white-flash');
+    const startMenu = document.getElementById('start-menu');
     const container = document.getElementById('game-container');
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
@@ -335,18 +423,79 @@
     let walls = [];
     let fogCells = [];
 
+    // ==================== AUDIO ====================
     let audioCtx;
-    function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
-    function playTone(f, d, t = 'sine', v = 0.08, dl = 0) { if (!audioCtx) return; const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = t; o.frequency.value = f; g.gain.setValueAtTime(0, audioCtx.currentTime + dl); g.gain.linearRampToValueAtTime(v, audioCtx.currentTime + dl + 0.01); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dl + d); o.connect(g); g.connect(audioCtx.destination); o.start(audioCtx.currentTime + dl); o.stop(audioCtx.currentTime + dl + d + 0.05); }
+    function initAudio() { 
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
+      if (audioCtx.state === 'suspended') audioCtx.resume(); 
+    }
+    
+    function playTone(f, d, t = 'sine', v = 0.08, dl = 0) { 
+      if (!audioCtx) return; 
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain(); 
+      o.type = t; 
+      o.frequency.value = f; 
+      g.gain.setValueAtTime(0, audioCtx.currentTime + dl); 
+      g.gain.linearRampToValueAtTime(v, audioCtx.currentTime + dl + 0.01); 
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dl + d); 
+      o.connect(g); g.connect(audioCtx.destination); 
+      o.start(audioCtx.currentTime + dl); 
+      o.stop(audioCtx.currentTime + dl + d + 0.05);
+    }
+    
     function playEcho() { playTone(920, 0.04, 'square', 0.04); playTone(460, 0.06, 'sine', 0.025, 0.02); }
     function playAlert() { playTone(180, 0.15, 'sawtooth', 0.09); playTone(90, 0.25, 'sawtooth', 0.12, 0.1); }
     function playHeartbeat(int) { const b = 35 + int * 25; playTone(b, 0.06, 'sine', 0.015 + int * 0.04); playTone(b * 0.5, 0.08, 'sine', 0.008 + int * 0.02, 0.04); }
     function playCardCollect() { [580, 740, 930].forEach((f, i) => playTone(f, 0.07, 'sine', 0.06, i * 0.05)); }
     function playWin() { [523, 659, 784, 1047].forEach((f, i) => playTone(f, 0.18, 'sine', 0.07, i * 0.12)); }
-    function playLose() { playTone(70, 0.4, 'sawtooth', 0.18); playTone(45, 0.6, 'square', 0.25, 0.25); const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.frequency.value = 25; g.gain.value = 0.15; o.connect(g); g.connect(audioCtx.destination); o.start(); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2); o.stop(audioCtx.currentTime + 1.2); }
+    function playLose() { 
+      playTone(70, 0.4, 'sawtooth', 0.18); 
+      playTone(45, 0.6, 'square', 0.25, 0.25); 
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain(); 
+      o.frequency.value = 25; g.gain.value = 0.15; o.connect(g); g.connect(audioCtx.destination); 
+      o.start(); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2); o.stop(audioCtx.currentTime + 1.2); 
+    }
     function playLevelUp() { [440, 550, 660, 880].forEach((f, i) => playTone(f, 0.12, 'sine', 0.08, i * 0.1)); }
-    function playAmbient() { if (!audioCtx) return; const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = 'triangle'; o.frequency.value = 28 + Math.random() * 8; g.gain.value = 0.015; o.connect(g); g.connect(audioCtx.destination); o.start(); const d = 3 + Math.random() * 3; g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + d); o.stop(audioCtx.currentTime + d + 0.1); setTimeout(playAmbient, 4000 + Math.random() * 5000); }
+    
+    let ambientNodes = null;
+    function playAmbient() { 
+      if (!audioCtx || ambientNodes) return;
+      const o1 = audioCtx.createOscillator();
+      const o2 = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      const lfo = audioCtx.createOscillator();
+      const lfoGain = audioCtx.createGain();
+      
+      o1.type = 'triangle'; o1.frequency.value = 38;
+      o2.type = 'sine'; o2.frequency.value = 42;
+      lfo.type = 'sine'; lfo.frequency.value = 0.08;
+      lfoGain.gain.value = 8;
+      lfo.connect(lfoGain);
+      lfoGain.connect(o2.frequency);
+      
+      g.gain.value = 0.012;
+      o1.connect(g); o2.connect(g);
+      g.connect(audioCtx.destination);
+      
+      o1.start(); o2.start(); lfo.start();
+      ambientNodes = { o1, o2, g, lfo, lfoGain };
+      
+      const d = 8000 + Math.random() * 4000;
+      setTimeout(() => {
+        if (ambientNodes) {
+          g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2);
+          setTimeout(() => { stopAmbient(); playAmbient(); }, 2000);
+        }
+      }, d);
+    }
+    
+    function stopAmbient() {
+      if (!ambientNodes) return;
+      ambientNodes.o1.stop(); ambientNodes.o2.stop(); ambientNodes.lfo.stop();
+      ambientNodes = null;
+    }
 
+    // ==================== UI ====================
     function updateLivesUI() {
       const livesEl = document.getElementById('lives');
       let hearts = '';
@@ -365,6 +514,73 @@
       document.getElementById('cards-total').textContent = level.cards;
     }
 
+    // ==================== BOOT SEQUENCE (JS-контроль) ====================
+    async function runBootSequence() {
+      const loaded = await loadAllSVGs();
+      
+      // Фаза 1: чёрный экран (0.5с) — всё скрыто по умолчанию
+      await wait(500);
+      
+      // Фаза 2: щелчок реле + белая вспышка (1с)
+      playTone(800, 0.1, 'square', 0.05);
+      whiteFlash.style.transition = 'opacity 0.1s';
+      whiteFlash.style.opacity = '0.9';
+      await wait(100);
+      whiteFlash.style.transition = 'opacity 0.4s ease-out';
+      whiteFlash.style.opacity = '0';
+      
+      // Параллельно: проявление GIF
+      startBg.style.opacity = '1';
+      await wait(400);
+      
+      // Включаем overlay и эффекты
+      startOverlay.style.opacity = '1';
+      startScanlines.style.opacity = '0.7';
+      startVignette.style.opacity = '0.6';
+      
+      // Фаза 3: гул включения (1.5с)
+      playTone(50, 1.5, 'sawtooth', 0.03);
+      await wait(1500);
+      
+      // Фаза 4: появление меню
+      startMenu.style.opacity = '1';
+      playTone(1200, 0.08, 'sine', 0.04);
+      
+      // Typewriter эффект
+      typewriterEffect();
+    }
+    
+    function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+    
+    function typewriterEffect() {
+      const menuText = document.getElementById('menu-text');
+      const paragraphs = menuText.querySelectorAll('p');
+      menuText.style.opacity = '0';
+      
+      let delay = 0;
+      paragraphs.forEach((p, i) => {
+        const original = p.textContent;
+        p.textContent = '';
+        p.style.opacity = '0';
+        
+        setTimeout(() => {
+          p.style.transition = 'opacity 0.3s';
+          p.style.opacity = '1';
+          let charIdx = 0;
+          const interval = setInterval(() => {
+            p.textContent = original.slice(0, charIdx + 1);
+            charIdx++;
+            if (charIdx >= original.length) clearInterval(interval);
+          }, 30);
+        }, delay);
+        
+        delay += original.length * 30 + 200;
+      });
+      
+      setTimeout(() => { menuText.style.opacity = '1'; }, 0);
+    }
+
+    // ==================== LEVEL ====================
     function initFog() {
       fogCells = [];
       const cols = Math.ceil(CONFIG.width / CONFIG.fogGridSize), rows = Math.ceil(CONFIG.height / CONFIG.fogGridSize);
@@ -414,6 +630,7 @@
       initFog();
     }
 
+    // ==================== COLLISION ====================
     function circleRectCollision(cx, cy, r, rect) { const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.w)), closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.h)); return ((cx - closestX) ** 2 + (cy - closestY) ** 2) < (r * r); }
     function lineIntersectsWall(x1, y1, x2, y2) { for (const w of walls) { if (x1 < w.x - 5 && x2 < w.x - 5 || x1 > w.x + w.w + 5 && x2 > w.x + w.w + 5 || y1 < w.y - 5 && y2 < w.y - 5 || y1 > w.y + w.h + 5 && y2 > w.y + w.h + 5) continue; const s = [{x1:w.x,y1:w.y,x2:w.x+w.w,y2:w.y},{x1:w.x,y1:w.y+w.h,x2:w.x+w.w,y2:w.y+w.h},{x1:w.x,y1:w.y,x2:w.x,y2:w.y+w.h},{x1:w.x+w.w,y1:w.y,x2:w.x+w.w,y2:w.y+w.h}]; for (const q of s) { const d = (q.y2 - q.y1) * (x2 - x1) - (q.x2 - q.x1) * (y2 - y1); if (Math.abs(d) < 0.01) continue; const ua = ((q.x2 - q.x1) * (y1 - q.y1) - (q.y2 - q.y1) * (x1 - q.x1)) / d, ub = ((x2 - x1) * (y1 - q.y1) - (y2 - y1) * (x1 - q.x1)) / d; if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) return true; } } return false; }
     function moveWithCollision(obj, dx, dy, sp) { const nx = obj.x + dx * sp, ny = obj.y + dy * sp; let cx = true, cy = true; for (const w of walls) { if (circleRectCollision(nx, obj.y, obj.radius, w)) cx = false; if (circleRectCollision(obj.x, ny, obj.radius, w)) cy = false; } if (cx) obj.x = nx; if (cy) obj.y = ny; obj.x = Math.max(obj.radius + 2, Math.min(CONFIG.width - obj.radius - 2, obj.x)); obj.y = Math.max(obj.radius + 2, Math.min(CONFIG.height - obj.radius - 2, obj.y)); }
@@ -429,6 +646,7 @@
       return angleDiff < (effectiveAngle / 2) * Math.PI / 180;
     }
 
+    // ==================== ENEMY ====================
     function updateEnemy() {
       if (state.isDead) return;
       if (enemy.alertPulse > 0) { enemy.alertPulse *= 0.94; if (enemy.alertPulse < 0.02) enemy.alertPulse = 0; }
@@ -468,6 +686,7 @@
       if (state.silenceTimer > CONFIG.silenceThreshold && enemy.investigate) enemy.investigate = null;
     }
 
+    // ==================== CARDS ====================
     function updateCards() {
       for (const card of cards) { 
         if (card.collected) continue; 
@@ -490,6 +709,7 @@
       }
     }
 
+    // ==================== FOG ====================
     function smoothstep(e0, e1, x) { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); }
     function updateFog(panic) {
       const targetR = state.echoTimer > 0 ? state.currentEchoRadius : CONFIG.fogBaseRadius;
@@ -508,6 +728,7 @@
       }
     }
 
+    // ==================== ATMOSPHERE ====================
     function updateAtmosphere() {
       const d = Math.hypot(player.x - enemy.x, player.y - enemy.y), prox = Math.max(0, 1 - d / 350), vis = isInEnemyVision() ? 1 : 0, pan = Math.max(prox, vis);
       const bpm = CONFIG.heartbeatBase + (CONFIG.heartbeatMax - CONFIG.heartbeatBase) * pan;
@@ -519,6 +740,7 @@
       return pan;
     }
 
+    // ==================== DEATH ====================
     function handleDeath() {
       if (state.isDead) return;
       state.isDead = true;
@@ -541,7 +763,7 @@
       } else {
         playLose();
         showMessage(`♥ Осталось жизней: ${state.lives}`, 1500);
-        state.running = false; // <-- FIX: останавливаем игру на время респавна
+        state.running = false;
         setTimeout(() => { 
           state.isDead = false;
           generateLevel(); 
@@ -551,6 +773,7 @@
       }
     }
 
+    // ==================== DRAW ====================
     function draw() {
       ctx.fillStyle = '#000'; ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
       ctx.strokeStyle = 'rgba(0,40,0,0.25)'; ctx.lineWidth = 1; ctx.beginPath(); 
@@ -559,11 +782,36 @@
       ctx.stroke();
       
       ctx.fillStyle = '#020'; ctx.strokeStyle = '#0a0'; ctx.lineWidth = 2; 
-      for (const w of walls) { ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeRect(w.x, w.y, w.w, w.h); ctx.fillStyle = 'rgba(0,80,0,0.3)'; ctx.fillRect(w.x + 3, w.y + 3, w.w - 6, w.h - 6); ctx.fillStyle = '#020'; }
+      for (const w of walls) { 
+        ctx.fillRect(w.x, w.y, w.w, w.h); 
+        ctx.strokeRect(w.x, w.y, w.w, w.h); 
+        ctx.fillStyle = 'rgba(0,80,0,0.3)'; 
+        ctx.fillRect(w.x + 3, w.y + 3, w.w - 6, w.h - 6); 
+        ctx.fillStyle = '#020'; 
+      }
       
-      if (exit.active) { const p = 1 + Math.sin(Date.now() / 100) * 0.15; ctx.fillStyle = `rgba(0,255,0,${0.7 + Math.sin(Date.now() / 80) * 0.2})`; ctx.fillRect(exit.x, exit.y, exit.w, exit.h); ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2 + p * 0.5; ctx.strokeRect(exit.x - 2, exit.y - 2, exit.w + 4, exit.h + 4); ctx.fillStyle = '#000'; ctx.font = '9px monospace'; ctx.fillText('→', exit.x + 8, exit.y + 28); }
+      if (exit.active) { 
+        const p = 1 + Math.sin(Date.now() / 100) * 0.15; 
+        ctx.fillStyle = `rgba(0,255,0,${0.7 + Math.sin(Date.now() / 80) * 0.2})`; 
+        ctx.fillRect(exit.x, exit.y, exit.w, exit.h); 
+        ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2 + p * 0.5; 
+        ctx.strokeRect(exit.x - 2, exit.y - 2, exit.w + 4, exit.h + 4); 
+        ctx.fillStyle = '#000'; ctx.font = '9px monospace'; 
+        ctx.fillText('→', exit.x + 8, exit.y + 28); 
+      }
       
-      for (const card of cards) { if (card.collected) continue; if (state.echoTimer > 0 && Math.hypot(player.x - card.x, player.y - card.y) < state.currentEchoRadius + 30) { const r = card.radius + Math.sin(Date.now() / 80) * 1.5; if (svgPaths.card.length > 0) svgPaths.card.forEach(p => drawSVGEl(ctx, p, card.x - 10, card.y - 10)); else { ctx.beginPath(); ctx.arc(card.x, card.y, r, 0, Math.PI * 2); ctx.fillStyle = `rgba(0,255,0,${0.6 + Math.sin(Date.now() / 60) * 0.2})`; ctx.fill(); ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2; ctx.stroke(); } } }
+      for (const card of cards) { 
+        if (card.collected) continue; 
+        if (state.echoTimer > 0 && Math.hypot(player.x - card.x, player.y - card.y) < state.currentEchoRadius + 30) { 
+          const r = card.radius + Math.sin(Date.now() / 80) * 1.5; 
+          if (svgPaths.card.length > 0) svgPaths.card.forEach(p => drawSVGEl(ctx, p, card.x - 10, card.y - 10)); 
+          else { 
+            ctx.beginPath(); ctx.arc(card.x, card.y, r, 0, Math.PI * 2); 
+            ctx.fillStyle = `rgba(0,255,0,${0.6 + Math.sin(Date.now() / 60) * 0.2})`; 
+            ctx.fill(); ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2; ctx.stroke(); 
+          } 
+        } 
+      }
       
       if (state.echoTimer > 0) { 
         const pr = state.echoTimer / CONFIG.echoDuration;
@@ -575,28 +823,96 @@
         ctx.beginPath(); ctx.arc(player.x, player.y, state.currentEchoRadius * pr, 0, Math.PI * 2); ctx.stroke();
       }
       
-      if (svgPaths.player.length > 0) svgPaths.player.forEach(p => drawSVGEl(ctx, p, player.x - 20, player.y - 20)); else { ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fillStyle = player.breathHold ? '#0a0' : player.color; ctx.fill(); ctx.strokeStyle = player.breathHold ? '#0c0' : '#0f0'; ctx.lineWidth = 2; ctx.stroke(); }
-      if (svgPaths.enemy.length > 0) svgPaths.enemy.forEach(p => drawSVGEl(ctx, p, enemy.x - 20, enemy.y - 20)); else { const eg = enemy.alertPulse > 0 ? enemy.alertPulse : 0; ctx.beginPath(); ctx.arc(enemy.x, enemy.y, enemy.radius + eg * 3, 0, Math.PI * 2); ctx.fillStyle = enemy.investigate ? '#f88' : enemy.color; ctx.fill(); ctx.strokeStyle = enemy.investigate ? '#f44' : '#a22'; ctx.lineWidth = 2 + eg * 2; ctx.stroke(); ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(enemy.x - 4, enemy.y - 3, 3, 0, Math.PI * 2); ctx.arc(enemy.x + 4, enemy.y - 3, 3, 0, Math.PI * 2); ctx.fill(); const ld = Math.hypot(player.x - enemy.x, player.y - enemy.y); if (ld < 300) { const lx = (player.x - enemy.x) / ld * 1.5, ly = (player.y - enemy.y) / ld * 1.5; ctx.fillStyle = '#f00'; ctx.beginPath(); ctx.arc(enemy.x - 4 + lx, enemy.y - 3 + ly, 1.5, 0, Math.PI * 2); ctx.arc(enemy.x + 4 + lx, enemy.y - 3 + ly, 1.5, 0, Math.PI * 2); ctx.fill(); } }
-      if (!enemy.investigate && svgPaths.enemy.length === 0) { ctx.save(); ctx.translate(enemy.x, enemy.y); ctx.rotate(enemy.direction); ctx.fillStyle = 'rgba(255,50,50,0.04)'; ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,CONFIG.enemyVisionRange, -CONFIG.enemyVisionAngle/2*Math.PI/180, CONFIG.enemyVisionAngle/2*Math.PI/180); ctx.closePath(); ctx.fill(); ctx.restore(); }
+      if (svgPaths.player.length > 0) svgPaths.player.forEach(p => drawSVGEl(ctx, p, player.x - 20, player.y - 20)); 
+      else { 
+        ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); 
+        ctx.fillStyle = player.breathHold ? '#0a0' : player.color; 
+        ctx.fill(); ctx.strokeStyle = player.breathHold ? '#0c0' : '#0f0'; ctx.lineWidth = 2; ctx.stroke(); 
+      }
       
-      for (const c of fogCells) if (c.alpha > 0.01) { ctx.fillStyle = `rgba(0,17,0,${c.alpha})`; ctx.fillRect(c.x, c.y, CONFIG.fogGridSize, CONFIG.fogGridSize); }
-      if (state.screenPulse > 0.01) { ctx.fillStyle = `rgba(30,0,0,${state.screenPulse})`; ctx.fillRect(0, 0, CONFIG.width, CONFIG.height); state.screenPulse *= 0.88; }
+      if (svgPaths.enemy.length > 0) svgPaths.enemy.forEach(p => drawSVGEl(ctx, p, enemy.x - 20, enemy.y - 20)); 
+      else { 
+        const eg = enemy.alertPulse > 0 ? enemy.alertPulse : 0; 
+        ctx.beginPath(); ctx.arc(enemy.x, enemy.y, enemy.radius + eg * 3, 0, Math.PI * 2); 
+        ctx.fillStyle = enemy.investigate ? '#f88' : enemy.color; 
+        ctx.fill(); ctx.strokeStyle = enemy.investigate ? '#f44' : '#a22'; ctx.lineWidth = 2 + eg * 2; ctx.stroke(); 
+        ctx.fillStyle = '#000'; ctx.beginPath(); 
+        ctx.arc(enemy.x - 4, enemy.y - 3, 3, 0, Math.PI * 2); 
+        ctx.arc(enemy.x + 4, enemy.y - 3, 3, 0, Math.PI * 2); 
+        ctx.fill(); 
+        const ld = Math.hypot(player.x - enemy.x, player.y - enemy.y); 
+        if (ld < 300) { 
+          const lx = (player.x - enemy.x) / ld * 1.5, ly = (player.y - enemy.y) / ld * 1.5; 
+          ctx.fillStyle = '#f00'; ctx.beginPath(); 
+          ctx.arc(enemy.x - 4 + lx, enemy.y - 3 + ly, 1.5, 0, Math.PI * 2); 
+          ctx.arc(enemy.x + 4 + lx, enemy.y - 3 + ly, 1.5, 0, Math.PI * 2); 
+          ctx.fill(); 
+        } 
+      }
+      
+      if (!enemy.investigate && svgPaths.enemy.length === 0) { 
+        ctx.save(); ctx.translate(enemy.x, enemy.y); ctx.rotate(enemy.direction); 
+        ctx.fillStyle = 'rgba(255,50,50,0.04)'; ctx.beginPath(); ctx.moveTo(0,0); 
+        ctx.arc(0,0,CONFIG.enemyVisionRange, -CONFIG.enemyVisionAngle/2*Math.PI/180, CONFIG.enemyVisionAngle/2*Math.PI/180); 
+        ctx.closePath(); ctx.fill(); ctx.restore(); 
+      }
+      
+      for (const c of fogCells) if (c.alpha > 0.01) { 
+        ctx.fillStyle = `rgba(0,17,0,${c.alpha})`; 
+        ctx.fillRect(c.x, c.y, CONFIG.fogGridSize, CONFIG.fogGridSize); 
+      }
+      
+      if (state.screenPulse > 0.01) { 
+        ctx.fillStyle = `rgba(30,0,0,${state.screenPulse})`; 
+        ctx.fillRect(0, 0, CONFIG.width, CONFIG.height); 
+        state.screenPulse *= 0.88; 
+      }
     }
-    function drawSVGEl(c, p, ox, oy) { c.save(); c.translate(ox, oy); if (p.type === 'rect') { if (p.fill) { c.fillStyle = p.fill; c.fillRect(p.x, p.y, p.w, p.h); } if (p.stroke) { c.strokeStyle = p.stroke; c.strokeRect(p.x, p.y, p.w, p.h); } } else if (p.type === 'circle') { c.beginPath(); c.arc(p.cx, p.cy, p.r, 0, Math.PI * 2); if (p.fill) { c.fillStyle = p.fill; c.fill(); } if (p.stroke) { c.strokeStyle = p.stroke; c.stroke(); } } c.restore(); }
+    
+    function drawSVGEl(c, p, ox, oy) { 
+      c.save(); c.translate(ox, oy); 
+      if (p.type === 'rect') { 
+        if (p.fill) { c.fillStyle = p.fill; c.fillRect(p.x, p.y, p.w, p.h); } 
+        if (p.stroke) { c.strokeStyle = p.stroke; c.strokeRect(p.x, p.y, p.w, p.h); } 
+      } else if (p.type === 'circle') { 
+        c.beginPath(); c.arc(p.cx, p.cy, p.r, 0, Math.PI * 2); 
+        if (p.fill) { c.fillStyle = p.fill; c.fill(); } 
+        if (p.stroke) { c.strokeStyle = p.stroke; c.stroke(); } 
+      } 
+      c.restore(); 
+    }
 
+    // ==================== UPDATE ====================
     function update() {
       if (!state.running || state.gameOver) return;
       const keys = pressedKeys; let dx = 0, dy = 0;
       player.breathHold = (keys['Shift'] || keys['ShiftLeft'] || keys['ShiftRight']);
-      if (!player.breathHold) { if (keys['ArrowUp'] || keys['w'] || keys['W']) dy = -1; if (keys['ArrowDown'] || keys['s'] || keys['S']) dy = 1; if (keys['ArrowLeft'] || keys['a'] || keys['A']) dx = -1; if (keys['ArrowRight'] || keys['d'] || keys['D']) dx = 1; }
+      if (!player.breathHold) { 
+        if (keys['ArrowUp'] || keys['w'] || keys['W']) dy = -1; 
+        if (keys['ArrowDown'] || keys['s'] || keys['S']) dy = 1; 
+        if (keys['ArrowLeft'] || keys['a'] || keys['A']) dx = -1; 
+        if (keys['ArrowRight'] || keys['d'] || keys['D']) dx = 1; 
+      }
       if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
-      if ((dx !== 0 || dy !== 0) && !player.breathHold) { moveWithCollision(player, dx, dy, CONFIG.playerSpeed); state.silenceTimer = 0; if (Math.random() > 0.97) playTone(80 + Math.random() * 30, 0.02, 'sine', 0.01); } else state.silenceTimer++;
+      if ((dx !== 0 || dy !== 0) && !player.breathHold) { 
+        moveWithCollision(player, dx, dy, CONFIG.playerSpeed); 
+        state.silenceTimer = 0; 
+        if (Math.random() > 0.97) playTone(80 + Math.random() * 30, 0.02, 'sine', 0.01); 
+      } else state.silenceTimer++;
       if ((keys[' '] || keys['Spacebar']) && !player.breathHold && state.echoTimer === 0) triggerEcho();
       if (state.echoTimer > 0) state.echoTimer--;
       updateCards(); updateEnemy(); const pan = updateAtmosphere(); updateFog(pan);
       if (exit.active && player.x > exit.x && player.x < exit.x + exit.w && player.y > exit.y && player.y < exit.y + exit.h) levelComplete();
     }
-    function triggerEcho() { playEcho(); state.echoTimer = CONFIG.echoDuration; enemy.investigate = { x: player.x + (Math.random() - 0.5) * 20, y: player.y + (Math.random() - 0.5) * 20, timer: 170 }; enemy.alertPulse = 1; playAlert(); showMessage("ОНА УСЛЫШАЛА...", 100); }
+    
+    function triggerEcho() { 
+      playEcho(); 
+      state.echoTimer = CONFIG.echoDuration; 
+      enemy.investigate = { x: player.x + (Math.random() - 0.5) * 20, y: player.y + (Math.random() - 0.5) * 20, timer: 170 }; 
+      enemy.alertPulse = 1; 
+      playAlert(); 
+      showMessage("ОНА УСЛЫШАЛА...", 100); 
+    }
     
     function levelComplete() {
       if (state.transitioning || state.isDead) return;
@@ -617,16 +933,21 @@
       }
     }
 
+    // ==================== GAME LOOP ====================
     function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
     function showMessage(t, d) { const e = document.getElementById('message'); e.textContent = t; e.classList.add('show'); setTimeout(() => e.classList.remove('show'), d); }
     
+    // ==================== START / RESTART ====================
     function startGame() { 
+      if (state.initialized) return;
+      state.initialized = true;
+      
       initAudio(); 
       state.currentLevel = 0; state.lives = CONFIG.maxLives; state.transitioning = false; state.isDead = false;
       updateLivesUI(); generateLevel(); state.running = true; state.gameOver = false; state.win = false; 
       
-      document.getElementById('start-screen-wrapper').style.display = 'none';
-      document.getElementById('game-container').style.display = 'block';
+      wrapper.style.display = 'none';
+      container.style.display = 'block';
       
       document.getElementById('win-screen').classList.add('hidden'); 
       document.getElementById('lose-screen').classList.add('hidden');
@@ -648,24 +969,36 @@
       holdBar.style.display = 'none';
     }
 
+    // ==================== INPUT ====================
     let pressedKeys = {}; 
-    window.addEventListener('keydown', e => { pressedKeys[e.key] = true; if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault(); if (state.gameOver && state.lives <= 0) startGame(); }); 
+    window.addEventListener('keydown', e => { 
+      pressedKeys[e.key] = true; 
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault(); 
+      if (state.gameOver && state.lives <= 0) { state.initialized = false; startGame(); }
+    }); 
     window.addEventListener('keyup', e => { pressedKeys[e.key] = false; });
-    document.getElementById('start-btn').addEventListener('click', startGame);
-    document.getElementById('restart-win').addEventListener('click', startGame);
-    document.getElementById('restart-lose').addEventListener('click', startGame);
-    document.getElementById('level-next-btn').addEventListener('click', () => { document.getElementById('level-screen').classList.add('hidden'); restartLevel(); });
-    canvas.addEventListener('click', () => { if (state.gameOver && state.lives <= 0) startGame(); });
     
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('restart-win').addEventListener('click', () => { state.initialized = false; startGame(); });
+    document.getElementById('restart-lose').addEventListener('click', () => { state.initialized = false; startGame(); });
+    document.getElementById('level-next-btn').addEventListener('click', () => { document.getElementById('level-screen').classList.add('hidden'); restartLevel(); });
+    canvas.addEventListener('click', () => { if (state.gameOver && state.lives <= 0) { state.initialized = false; startGame(); } });
+    
+    // ==================== RESIZE ====================
     function resizeCanvas() { 
       const s = Math.min(window.innerWidth / CONFIG.width, window.innerHeight / CONFIG.height) * 0.98; 
       container.style.transform = `scale(${s})`; 
-      container.style.transformOrigin = 'center center'; 
+      container.style.transformOrigin = 'center center';
+      wrapper.style.transform = `scale(${s})`;
+      wrapper.style.transformOrigin = 'center center';
     } 
-    window.addEventListener('resize', resizeCanvas); resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
     
+    // ==================== INIT ====================
     updateLivesUI();
-    loadAllSVGs().then(() => gameLoop()).catch(() => gameLoop());
+    resizeCanvas();
+    runBootSequence();
+    gameLoop();
   </script>
 </body>
 </html>
