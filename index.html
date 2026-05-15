@@ -19,7 +19,6 @@
       user-select: none;
     }
 
-    /* ==================== ЕДИНЫЙ КОНТЕЙНЕР 800×600 ==================== */
     #start-screen-wrapper {
       position: relative;
       width: 800px;
@@ -30,7 +29,6 @@
       box-shadow: 0 0 40px rgba(0,255,0,0.2);
     }
     
-    /* Фоновый GIF — всегда видим, без фильтров затемнения */
     #start-bg {
       position: absolute;
       top: 0; left: 0;
@@ -39,11 +37,10 @@
       object-fit: cover;
       image-rendering: pixelated;
       z-index: 0;
-      opacity: 0; /* стартовая невидимость, JS включает */
+      opacity: 0;
       transition: opacity 0.1s;
     }
     
-    /* Затемнение — отдельный слой */
     #start-overlay {
       position: absolute;
       inset: 0;
@@ -53,7 +50,6 @@
       transition: opacity 0.5s;
     }
     
-    /* CRT scanlines */
     #start-scanlines {
       position: absolute;
       inset: 0;
@@ -70,7 +66,6 @@
       transition: opacity 0.5s;
     }
     
-    /* Vignette */
     #start-vignette {
       position: absolute;
       inset: 0;
@@ -81,7 +76,6 @@
       transition: opacity 0.5s;
     }
     
-    /* Белая вспышка — отдельный слой */
     #white-flash {
       position: absolute;
       inset: 0;
@@ -91,16 +85,16 @@
       pointer-events: none;
     }
 
-    /* ==================== МЕНЮ (1/4 области = 400×300) ==================== */
+    /* ==================== МЕНЮ: УЖАТОЕ ==================== */
     #start-menu {
       position: absolute;
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      width: 400px;
-      height: 300px;
+      width: 360px;
+      height: 270px;
       background: rgba(0, 15, 0, 0.88);
       border: 2px solid #0f0;
-      padding: 20px 25px;
+      padding: 12px 16px;
       text-align: center;
       z-index: 10;
       box-shadow: 0 0 30px rgba(0,255,0,0.25), inset 0 0 20px rgba(0,255,0,0.08);
@@ -112,7 +106,6 @@
       transition: opacity 0.6s ease-out;
     }
     
-    /* Пульсирующая рамка */
     #start-menu::before {
       content: '';
       position: absolute;
@@ -128,11 +121,11 @@
     }
     
     #start-menu h1 {
-      font-size: 48px;
-      letter-spacing: 12px;
+      font-size: 40px;
+      letter-spacing: 8px;
       text-shadow: 0 0 10px #0f0, 0 0 30px rgba(0,255,0,0.4);
       animation: titleFlicker 3s infinite;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
       line-height: 1;
     }
     @keyframes titleFlicker {
@@ -145,46 +138,49 @@
     .menu-divider {
       height: 1px;
       background: linear-gradient(90deg, transparent, rgba(0,255,0,0.4), transparent);
-      margin: 8px 0;
+      margin: 4px 0;
     }
     
     .menu-instructions {
-      font-size: 16px;
-      line-height: 1.7;
-      letter-spacing: 1px;
+      font-size: 13px;
+      line-height: 1.45;
+      letter-spacing: 0.5px;
     }
-    .menu-instructions p { margin: 3px 0; }
+    .menu-instructions p { margin: 1px 0; }
     
     .menu-warning {
       color: #f66;
       font-weight: bold;
-      font-size: 14px;
+      font-size: 11px;
       text-shadow: 0 0 5px rgba(255,0,0,0.4);
-      letter-spacing: 1px;
-      line-height: 1.4;
+      letter-spacing: 0.5px;
+      line-height: 1.2;
+      margin: 2px 0;
     }
     
     #svg-status {
-      font-size: 12px;
+      font-size: 10px;
       opacity: 0.6;
-      letter-spacing: 1px;
-      min-height: 16px;
+      letter-spacing: 0.5px;
+      line-height: 1.2;
+      margin: 2px 0;
     }
     
     #start-btn {
-      padding: 10px 32px;
+      padding: 6px 24px;
       background: #0f0;
       color: #000;
       border: none;
       font-family: 'VT323', monospace;
       font-weight: bold;
-      font-size: 18px;
+      font-size: 14px;
       cursor: pointer;
-      letter-spacing: 3px;
+      letter-spacing: 2px;
       transition: all 0.15s;
       text-transform: uppercase;
       align-self: center;
-      margin-top: 8px;
+      margin-top: 4px;
+      margin-bottom: 0;
     }
     #start-btn:hover {
       background: #0c0;
@@ -270,7 +266,6 @@
 </head>
 <body>
 
-  <!-- ==================== СТАРТОВЫЙ ЭКРАН ==================== -->
   <div id="start-screen-wrapper">
     <img id="start-bg" src="intro.gif" alt="">
     <div id="start-overlay"></div>
@@ -298,7 +293,6 @@
     </div>
   </div>
 
-  <!-- ==================== ИГРА ==================== -->
   <div id="game-container">
     <canvas id="game" width="800" height="600"></canvas>
     <div id="scanlines"></div>
@@ -331,7 +325,6 @@
   </div>
 
   <script>
-    // ==================== КОНФИГУРАЦИЯ ====================
     const LEVELS = [
       { cards: 3, enemySpeed: 1.3, patrolRadius: 320, echoRadius: 90, name: "БУНКЕР", desc: "3 карты • Стандарт" },
       { cards: 4, enemySpeed: 1.5, patrolRadius: 380, echoRadius: 80, name: "ЛАБИРИНТ", desc: "4 карты • ОНА быстрее" },
@@ -401,7 +394,6 @@
       return loaded;
     }
 
-    // ==================== DOM ====================
     const wrapper = document.getElementById('start-screen-wrapper');
     const startBg = document.getElementById('start-bg');
     const startOverlay = document.getElementById('start-overlay');
@@ -423,7 +415,6 @@
     let walls = [];
     let fogCells = [];
 
-    // ==================== AUDIO ====================
     let audioCtx;
     function initAudio() { 
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
@@ -495,7 +486,6 @@
       ambientNodes = null;
     }
 
-    // ==================== UI ====================
     function updateLivesUI() {
       const livesEl = document.getElementById('lives');
       let hearts = '';
@@ -514,14 +504,11 @@
       document.getElementById('cards-total').textContent = level.cards;
     }
 
-    // ==================== BOOT SEQUENCE (JS-контроль) ====================
     async function runBootSequence() {
       const loaded = await loadAllSVGs();
       
-      // Фаза 1: чёрный экран (0.5с) — всё скрыто по умолчанию
       await wait(500);
       
-      // Фаза 2: щелчок реле + белая вспышка (1с)
       playTone(800, 0.1, 'square', 0.05);
       whiteFlash.style.transition = 'opacity 0.1s';
       whiteFlash.style.opacity = '0.9';
@@ -529,24 +516,19 @@
       whiteFlash.style.transition = 'opacity 0.4s ease-out';
       whiteFlash.style.opacity = '0';
       
-      // Параллельно: проявление GIF
       startBg.style.opacity = '1';
       await wait(400);
       
-      // Включаем overlay и эффекты
       startOverlay.style.opacity = '1';
       startScanlines.style.opacity = '0.7';
       startVignette.style.opacity = '0.6';
       
-      // Фаза 3: гул включения (1.5с)
-      playTone(50, 1.5, 'sawtooth', 0.03);
-      await wait(1500);
+      playTone(50, 2.5, 'sawtooth', 0.03);
+      await wait(2500);
       
-      // Фаза 4: появление меню
       startMenu.style.opacity = '1';
       playTone(1200, 0.08, 'sine', 0.04);
       
-      // Typewriter эффект
       typewriterEffect();
     }
     
@@ -580,7 +562,6 @@
       setTimeout(() => { menuText.style.opacity = '1'; }, 0);
     }
 
-    // ==================== LEVEL ====================
     function initFog() {
       fogCells = [];
       const cols = Math.ceil(CONFIG.width / CONFIG.fogGridSize), rows = Math.ceil(CONFIG.height / CONFIG.fogGridSize);
@@ -630,7 +611,6 @@
       initFog();
     }
 
-    // ==================== COLLISION ====================
     function circleRectCollision(cx, cy, r, rect) { const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.w)), closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.h)); return ((cx - closestX) ** 2 + (cy - closestY) ** 2) < (r * r); }
     function lineIntersectsWall(x1, y1, x2, y2) { for (const w of walls) { if (x1 < w.x - 5 && x2 < w.x - 5 || x1 > w.x + w.w + 5 && x2 > w.x + w.w + 5 || y1 < w.y - 5 && y2 < w.y - 5 || y1 > w.y + w.h + 5 && y2 > w.y + w.h + 5) continue; const s = [{x1:w.x,y1:w.y,x2:w.x+w.w,y2:w.y},{x1:w.x,y1:w.y+w.h,x2:w.x+w.w,y2:w.y+w.h},{x1:w.x,y1:w.y,x2:w.x,y2:w.y+w.h},{x1:w.x+w.w,y1:w.y,x2:w.x+w.w,y2:w.y+w.h}]; for (const q of s) { const d = (q.y2 - q.y1) * (x2 - x1) - (q.x2 - q.x1) * (y2 - y1); if (Math.abs(d) < 0.01) continue; const ua = ((q.x2 - q.x1) * (y1 - q.y1) - (q.y2 - q.y1) * (x1 - q.x1)) / d, ub = ((x2 - x1) * (y1 - q.y1) - (y2 - y1) * (x1 - q.x1)) / d; if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) return true; } } return false; }
     function moveWithCollision(obj, dx, dy, sp) { const nx = obj.x + dx * sp, ny = obj.y + dy * sp; let cx = true, cy = true; for (const w of walls) { if (circleRectCollision(nx, obj.y, obj.radius, w)) cx = false; if (circleRectCollision(obj.x, ny, obj.radius, w)) cy = false; } if (cx) obj.x = nx; if (cy) obj.y = ny; obj.x = Math.max(obj.radius + 2, Math.min(CONFIG.width - obj.radius - 2, obj.x)); obj.y = Math.max(obj.radius + 2, Math.min(CONFIG.height - obj.radius - 2, obj.y)); }
@@ -646,7 +626,6 @@
       return angleDiff < (effectiveAngle / 2) * Math.PI / 180;
     }
 
-    // ==================== ENEMY ====================
     function updateEnemy() {
       if (state.isDead) return;
       if (enemy.alertPulse > 0) { enemy.alertPulse *= 0.94; if (enemy.alertPulse < 0.02) enemy.alertPulse = 0; }
@@ -686,7 +665,6 @@
       if (state.silenceTimer > CONFIG.silenceThreshold && enemy.investigate) enemy.investigate = null;
     }
 
-    // ==================== CARDS ====================
     function updateCards() {
       for (const card of cards) { 
         if (card.collected) continue; 
@@ -709,7 +687,6 @@
       }
     }
 
-    // ==================== FOG ====================
     function smoothstep(e0, e1, x) { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); }
     function updateFog(panic) {
       const targetR = state.echoTimer > 0 ? state.currentEchoRadius : CONFIG.fogBaseRadius;
@@ -728,7 +705,6 @@
       }
     }
 
-    // ==================== ATMOSPHERE ====================
     function updateAtmosphere() {
       const d = Math.hypot(player.x - enemy.x, player.y - enemy.y), prox = Math.max(0, 1 - d / 350), vis = isInEnemyVision() ? 1 : 0, pan = Math.max(prox, vis);
       const bpm = CONFIG.heartbeatBase + (CONFIG.heartbeatMax - CONFIG.heartbeatBase) * pan;
@@ -740,7 +716,6 @@
       return pan;
     }
 
-    // ==================== DEATH ====================
     function handleDeath() {
       if (state.isDead) return;
       state.isDead = true;
@@ -773,7 +748,6 @@
       }
     }
 
-    // ==================== DRAW ====================
     function draw() {
       ctx.fillStyle = '#000'; ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
       ctx.strokeStyle = 'rgba(0,40,0,0.25)'; ctx.lineWidth = 1; ctx.beginPath(); 
@@ -882,7 +856,6 @@
       c.restore(); 
     }
 
-    // ==================== UPDATE ====================
     function update() {
       if (!state.running || state.gameOver) return;
       const keys = pressedKeys; let dx = 0, dy = 0;
@@ -933,11 +906,9 @@
       }
     }
 
-    // ==================== GAME LOOP ====================
     function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
     function showMessage(t, d) { const e = document.getElementById('message'); e.textContent = t; e.classList.add('show'); setTimeout(() => e.classList.remove('show'), d); }
     
-    // ==================== START / RESTART ====================
     function startGame() { 
       if (state.initialized) return;
       state.initialized = true;
@@ -969,7 +940,6 @@
       holdBar.style.display = 'none';
     }
 
-    // ==================== INPUT ====================
     let pressedKeys = {}; 
     window.addEventListener('keydown', e => { 
       pressedKeys[e.key] = true; 
@@ -984,7 +954,6 @@
     document.getElementById('level-next-btn').addEventListener('click', () => { document.getElementById('level-screen').classList.add('hidden'); restartLevel(); });
     canvas.addEventListener('click', () => { if (state.gameOver && state.lives <= 0) { state.initialized = false; startGame(); } });
     
-    // ==================== RESIZE ====================
     function resizeCanvas() { 
       const s = Math.min(window.innerWidth / CONFIG.width, window.innerHeight / CONFIG.height) * 0.98; 
       container.style.transform = `scale(${s})`; 
@@ -994,7 +963,6 @@
     } 
     window.addEventListener('resize', resizeCanvas);
     
-    // ==================== INIT ====================
     updateLivesUI();
     resizeCanvas();
     runBootSequence();
