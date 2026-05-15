@@ -1,4 +1,5 @@
 import { audioCtx, playTone } from './engine.js';
+export { playTone };
 
 export function playEcho() {
   playTone(920, 0.04, 'square', 0.04);

@@ -1,9 +1,8 @@
 import { state } from '../state.js';
 import { CONFIG } from '../config.js';
 import { playLose } from '../audio/sfx.js';
-import { showMessage, animateHeartLoss, updateLivesUI, restartLevel } from './screens.js';
-import { generateLevel } from '../level/generator.js';
-import { ctx, canvas } from '../renderer/canvas.js';
+import { showMessage, animateHeartLoss, updateLivesUI } from './screens.js';
+import { ctx } from '../renderer/canvas.js';
 
 export function handleDeath() {
   if (state.isDead) return;
@@ -28,9 +27,10 @@ export function handleDeath() {
     playLose();
     showMessage(`♥ Осталось жизней: ${state.lives}`, 1500);
     state.running = false;
-    setTimeout(() => {
-      state.isDead = false;
+    setTimeout(async () => {
+      const { generateLevel } = await import('../level/generator.js');
       generateLevel();
+      state.isDead = false;
       state.running = true;
       state.gameOver = false;
     }, 1000);
