@@ -75,8 +75,38 @@ function updateAtmosphere() {
 function gameLoop() {
   update();
   draw();
+  updateDebug();
   requestAnimationFrame(gameLoop);
 }
+
+// Debug panel
+let debugPanelVisible = false;
+const debugPanel = document.getElementById('debug-panel');
+
+function updateDebug() {
+  if (!debugPanelVisible) return;
+  document.getElementById('dbg-enemy').textContent = `enemy: ${Math.round(enemy.x)},${Math.round(enemy.y)}`;
+  document.getElementById('dbg-mode').textContent = `mode: ${enemy.investigate ? 'investigate' : 'patrol'}`;
+  document.getElementById('dbg-wf').textContent = `wallFollow: ${enemy.wf.active ? `${enemy.wf.side.x},${enemy.wf.side.y}` : 'off'}`;
+  document.getElementById('dbg-target').textContent = `target: ${enemy.investigate ? `${Math.round(enemy.investigate.x)},${Math.round(enemy.investigate.y)}` : '—'}`;
+  document.getElementById('dbg-dist').textContent = `distToPlayer: ${Math.round(Math.hypot(player.x - enemy.x, player.y - enemy.y))}`;
+  document.getElementById('dbg-stuck').textContent = `stuckFrames: ${enemy.stuckFrames}`;
+}
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'F2') {
+    e.preventDefault();
+    debugPanelVisible = !debugPanelVisible;
+    debugPanel.style.display = debugPanelVisible ? 'block' : 'none';
+  }
+  if (e.key === 'F3') {
+    e.preventDefault();
+    if (enemy.investigate) enemy.investigate = null;
+    enemy.wf.active = false;
+    enemy.wf.wall = null;
+  }
+});
+
 
 export function startGame() {
   if (state.initialized) return;
