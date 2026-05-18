@@ -1,4 +1,4 @@
-import { CONFIG } from '../config.js';
+import { CONFIG, LEVELS } from '../config.js';
 import { state, playerTrail } from '../state.js';
 import { player } from './player.js';
 import { moveEnemy, canMoveTo, lineIntersectsWall } from '../level/walls.js';
@@ -76,7 +76,7 @@ export function updateEnemy() {
     const len = Math.hypot(dx, dy) || 1;
 
     if (len > 4) {
-      const sp = 1.8;
+      const sp = state.currentLevel === 0 ? 1.8 : (state.currentLevel === 1 ? 1.9 : 2.0);
       let moved = false;
 
       // Priority axis: try X first or Y first

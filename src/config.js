@@ -1,7 +1,7 @@
 export const LEVELS = [
-  { cards: 3, enemySpeed: 1.3, patrolRadius: 320, echoRadius: 90, name: "БУНКЕР", desc: "3 ключа • Стандарт" },
-  { cards: 4, enemySpeed: 1.5, patrolRadius: 380, echoRadius: 80, name: "ЛАБИРИНТ", desc: "4 ключа • ОНА злее" },
-  { cards: 5, enemySpeed: 1.7, patrolRadius: 420, echoRadius: 70, name: "БЕЗДНА", desc: "5 ключей • ОНА злее" }
+  { cards: 3, enemySpeed: 1.8, patrolRadius: 320, echoRadius: 90, name: "БУНКЕР", desc: "3 ключа • Стандарт" },
+  { cards: 4, enemySpeed: 1.9, patrolRadius: 380, echoRadius: 80, name: "ЛАБИРИНТ", desc: "4 ключа • ОНА злее" },
+  { cards: 5, enemySpeed: 2.0, patrolRadius: 420, echoRadius: 70, name: "БЕЗДНА", desc: "5 ключей • ОНА злее" }
 ];
 
 export const CONFIG = {
