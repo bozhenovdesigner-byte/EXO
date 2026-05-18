@@ -62,7 +62,7 @@ export function updateEnemy() {
       const dx = player.x - enemy.x;
       const dy = player.y - enemy.y;
       const len = Math.hypot(dx, dy) || 1;
-      tryMove(enemy, dx / len, dy / len, CONFIG.enemyChaseSpeed);
+      tryMove(enemy, dx / len, dy / len, 2.0);
       enemy.direction = Math.atan2(dy, dx);
       if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.radius + enemy.radius - 2) { handleDeath(); return; }
       return;
@@ -84,7 +84,7 @@ export function updateEnemy() {
     const len = Math.hypot(dx, dy) || 1;
 
     if (len > 4) {
-      const sp = CONFIG.enemyChaseSpeed;
+      const sp = 2.0;
       let moved = false;
 
       // Priority axis: try X first or Y first
@@ -152,7 +152,8 @@ export function updateEnemy() {
       if (enemy.investigate.timer % 25 === 0) playTone(280 + Math.random() * 40, 0.04, 'sine', 0.02);
       if (enemy.investigate.timer <= 0) {
         enemy.investigate = null;
-        playerTrail.length = 0; // Clear trail when investigate ends
+        playerTrail.length = 0;
+        enemy.alertPulse = 0.5; // Brief "confused" pulse when losing interest
       }
     }
 
@@ -176,6 +177,5 @@ export function updateEnemy() {
   if (Math.hypot(toPx, toPy) < CONFIG.enemyVisionRange * 0.7) enemy.direction = Math.atan2(toPy, toPx);
 
   if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.radius + enemy.radius - 2) { handleDeath(); return; }
-  if (isInEnemyVision()) { handleDeath(); return; }
   if (state.silenceTimer > CONFIG.silenceThreshold && enemy.investigate) enemy.investigate = null;
 }

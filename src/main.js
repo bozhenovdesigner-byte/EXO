@@ -40,7 +40,7 @@ function update() {
     const last = playerTrail[playerTrail.length - 1];
     if (!last || Math.hypot(player.x - last.x, player.y - last.y) > 15) {
       playerTrail.push({ x: player.x, y: player.y, time: Date.now() });
-      if (playerTrail.length > 15) playerTrail.shift();
+      if (playerTrail.length > 8) playerTrail.shift();
     }
   }
   updateCards();
@@ -56,7 +56,7 @@ function triggerEcho() {
   // Record player trail starting from current position
   playerTrail.length = 0;
   playerTrail.push({ x: player.x, y: player.y, time: Date.now() });
-  enemy.investigate = { x: player.x + (Math.random() - 0.5) * 20, y: player.y + (Math.random() - 0.5) * 20, timer: 170 };
+  enemy.investigate = { x: player.x + (Math.random() - 0.5) * 20, y: player.y + (Math.random() - 0.5) * 20, timer: 90 };
   enemy.alertPulse = 1;
   playAlert();
   showMessage("ОНА УСЛЫШАЛА...", 100);
