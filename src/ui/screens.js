@@ -36,6 +36,7 @@ export function levelComplete() {
   state.transitioning = true;
   state.running = false;
   playLevelUp();
+    showMessage('Молодец, но это ещё не всё...', 1500);
 
   if (state.currentLevel < LEVELS.length - 1) {
     state.currentLevel++;

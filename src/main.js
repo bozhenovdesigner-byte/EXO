@@ -170,3 +170,22 @@ updateLivesUI();
 resizeCanvas();
 runBootSequence();
 gameLoop();
+
+document.getElementById('share-btn').addEventListener('click', async () => {
+  const url = 'https://bozhenovdesigner-byte.github.io/EXO/';
+  try {
+    await navigator.clipboard.writeText(url);
+    const btn = document.getElementById('share-btn');
+    const original = btn.textContent;
+    btn.textContent = '✓ СКОПИРОВАНО';
+    setTimeout(() => btn.textContent = original, 2000);
+  } catch (err) {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+});

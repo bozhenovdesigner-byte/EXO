@@ -6,6 +6,16 @@
   <title>ЭХО • Хоррор</title>
   <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <meta property="og:title" content="ЭХО — стелс-хоррор">
+  <meta property="og:description" content="Проберись сквозь туман. Собери ключи. Не попадись Ей.">
+  <meta property="og:url" content="https://bozhenovdesigner-byte.github.io/EXO/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://bozhenovdesigner-byte.github.io/EXO/intro.gif">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="ЭХО — стелс-хоррор">
+  <meta name="twitter:description" content="Проберись сквозь туман. Собери ключи. Не попадись Ей.">
+  <meta name="twitter:image" content="https://bozhenovdesigner-byte.github.io/EXO/intro.gif">
+
 </head>
 <body>
 
@@ -41,27 +51,28 @@
     <div id="vignette"></div>
     <div class="hold-bar"><div class="hold-bar-fill" id="hold-fill"></div></div>
 
-    <div id="ui">🗝️ Карты: <span id="cards">0</span>/<span id="cards-total">3</span></div>
+    <div id="ui">🗝️ Ключи: <span id="cards">0</span>/<span id="cards-total">3</span></div>
     <div id="lives">♥♥♥</div>
     <div id="level-indicator">УРОВЕНЬ 1</div>
     <div id="message"></div>
 
     <div id="level-screen" class="hidden screen">
       <h1 id="level-title">УРОВЕНЬ 2</h1>
-      <p id="level-desc">4 карты • ОНА быстрее</p>
+      <p id="level-desc">4 ключа • ОНА быстрее</p>
       <button id="level-next-btn">ПРОДОЛЖИТЬ</button>
     </div>
 
     <div id="win-screen" class="hidden screen">
       <h1>✓ ТЫ ВЫШЕЛ</h1>
-      <p>Ты обманул Её... на этот раз.</p>
-      <p style="font-size:14px; opacity:0.7; margin-top:10px">Но эхо остаётся в стенах.</p>
+      <p>На этот раз ты справился, но...</p>
+      <p style="font-size:14px; opacity:0.7; margin-top:10px">Она всё ещё ждёт в темноте.</p>
+      <button id="share-btn">🔗 ПОДЕЛИТЬСЯ</button>
       <button id="restart-win">НАЧАТЬ ЗАНОВО</button>
     </div>
 
     <div id="lose-screen" class="hidden screen">
       <h1 style="color:#f00">✗ ОНА ТЕБЯ НАШЛА</h1>
-      <p id="death-message">Слишком громко. Слишком близко.</p>
+      <p id="death-message">Ты не должен был издавать ни звука...</p>
       <button id="restart-lose">ПОПРОБОВАТЬ СНОВА</button>
     </div>
   </div>
