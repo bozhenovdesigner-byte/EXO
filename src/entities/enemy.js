@@ -57,16 +57,8 @@ export function updateEnemy() {
   enemy.lastX = enemy.x; enemy.lastY = enemy.y;
 
   if (enemy.investigate) {
-    // If we see player directly — chase player, forget trail
-    if (isInEnemyVision()) {
-      const dx = player.x - enemy.x;
-      const dy = player.y - enemy.y;
-      const len = Math.hypot(dx, dy) || 1;
-      tryMove(enemy, dx / len, dy / len, 2.0);
-      enemy.direction = Math.atan2(dy, dx);
-      if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.radius + enemy.radius - 2) { handleDeath(); return; }
-      return;
-    }
+    // Chase player only on direct contact, not on vision
+    // (Removed vision-based chase to prevent instant death in radius)
 
     // Scent Trail: find best point to go to
     const trailPoint = findBestTrailPoint();
@@ -84,7 +76,7 @@ export function updateEnemy() {
     const len = Math.hypot(dx, dy) || 1;
 
     if (len > 4) {
-      const sp = 2.0;
+      const sp = 1.8;
       let moved = false;
 
       // Priority axis: try X first or Y first
