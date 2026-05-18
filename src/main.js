@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { state } from './state.js';
+import { state, playerTrail } from './state.js';
 import { initInput, pressedKeys } from './input.js';
 import { initAudio, audioCtx } from './audio/engine.js';
 import { playAmbient } from './audio/ambient.js';
@@ -75,7 +75,7 @@ function updateAtmosphere() {
     state.screenPulse = 0.08 + pan * 0.12;
   }
   if (state.heartbeatTimer > 0) state.heartbeatTimer--;
-  state.frameCount = (state.frameCount || 0) + 1;
+  state.frameCount++;
   vignette.style.opacity = 0.5 + pan * 0.35;
   if (pan > 0.4 && Math.random() < 0.008 * pan) {
     ctx.fillStyle = `rgba(0,255,0,${0.05 + pan * 0.1})`;

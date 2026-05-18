@@ -5,7 +5,8 @@ export const state = {
   gameOver: false, win: false, heartbeatTimer: 0, screenPulse: 0,
   holdingCard: null, svgLoaded: false, currentFogRadius: 120,
   currentLevel: 0, lives: 3, transitioning: false,
-  currentEchoRadius: 90, isDead: false, initialized: false
+  currentEchoRadius: 90, isDead: false, initialized: false,
+  frameCount: 0
 };
 
 export const svgAssets = { map: null, player: null, enemy: null, card: null };
