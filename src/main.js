@@ -149,6 +149,8 @@ export function startGame() {
   state.win = false;
 
   wrapper.style.display = 'none';
+  const menuAudio = document.getElementById("menu-audio");
+  if (menuAudio) { menuAudio.pause(); menuAudio.currentTime = 0; }
   container.style.display = 'block';
 
   document.getElementById('win-screen').classList.add('hidden');

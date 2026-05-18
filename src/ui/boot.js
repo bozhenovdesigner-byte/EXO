@@ -29,6 +29,12 @@ export async function runBootSequence() {
   playTone(1200, 0.08, 'sine', 0.04);
 
   typewriterEffect();
+  // Start menu background loop (requires user interaction first)
+  const menuAudio = document.getElementById("menu-audio");
+  if (menuAudio) {
+    menuAudio.volume = 0.4;
+    menuAudio.play().catch(() => {});
+  }
 }
 
 export function typewriterEffect() {
