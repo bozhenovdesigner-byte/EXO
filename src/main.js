@@ -85,12 +85,24 @@ const debugPanel = document.getElementById('debug-panel');
 
 function updateDebug() {
   if (!debugPanelVisible) return;
-  document.getElementById('dbg-enemy').textContent = `enemy: ${Math.round(enemy.x)},${Math.round(enemy.y)}`;
-  document.getElementById('dbg-mode').textContent = `mode: ${enemy.investigate ? 'investigate' : 'patrol'}`;
-  document.getElementById('dbg-wf').textContent = `wallFollow: ${enemy.wf.active ? `${enemy.wf.side.x},${enemy.wf.side.y}` : 'off'}`;
-  document.getElementById('dbg-target').textContent = `target: ${enemy.investigate ? `${Math.round(enemy.investigate.x)},${Math.round(enemy.investigate.y)}` : '—'}`;
-  document.getElementById('dbg-dist').textContent = `distToPlayer: ${Math.round(Math.hypot(player.x - enemy.x, player.y - enemy.y))}`;
-  document.getElementById('dbg-stuck').textContent = `stuckFrames: ${enemy.stuckFrames}`;
+  try {
+    const elEnemy = document.getElementById('dbg-enemy');
+    const elMode = document.getElementById('dbg-mode');
+    const elWf = document.getElementById('dbg-wf');
+    const elTarget = document.getElementById('dbg-target');
+    const elDist = document.getElementById('dbg-dist');
+    const elStuck = document.getElementById('dbg-stuck');
+    if (!elEnemy || !elMode || !elWf || !elTarget || !elDist || !elStuck) return;
+
+    elEnemy.textContent = `enemy: ${Math.round(enemy.x || 0)},${Math.round(enemy.y || 0)}`;
+    elMode.textContent = `mode: ${(enemy.investigate && enemy.investigate.x != null) ? 'investigate' : 'patrol'}`;
+    elWf.textContent = `stuck: ${enemy.stuckFrames || 0}`;
+    elTarget.textContent = `target: ${(enemy.investigate && enemy.investigate.x != null) ? `${Math.round(enemy.investigate.x)},${Math.round(enemy.investigate.y)}` : '—'}`;
+    elDist.textContent = `distToPlayer: ${Math.round(Math.hypot((player.x || 0) - (enemy.x || 0), (player.y || 0) - (enemy.y || 0)))}`;
+    elStuck.textContent = `alert: ${(enemy.alertPulse != null ? enemy.alertPulse : 0).toFixed(2)}`;
+  } catch (e) {
+    // Silently ignore debug errors
+  }
 }
 
 window.addEventListener('keydown', e => {
