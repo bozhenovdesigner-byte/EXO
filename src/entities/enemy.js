@@ -1,5 +1,5 @@
 import { CONFIG } from '../config.js';
-import { state } from '../state.js';
+import { state, playerTrail } from '../state.js';
 import { player } from './player.js';
 import { moveEnemy, canMoveTo, lineIntersectsWall } from '../level/walls.js';
 import { playTone } from '../audio/sfx.js';
@@ -31,14 +31,54 @@ function tryMove(obj, dirX, dirY, speed) {
   return false;
 }
 
+// Find best trail point: closest to enemy with line-of-sight to target
+function findBestTrailPoint() {
+  if (!playerTrail || playerTrail.length === 0) return null;
+  let best = null;
+  let bestDist = Infinity;
+  for (const p of playerTrail) {
+    // Check if from this point we can see the investigate target
+    const targetX = enemy.investigate ? enemy.investigate.x : player.x;
+    const targetY = enemy.investigate ? enemy.investigate.y : player.y;
+    if (!lineIntersectsWall(p.x, p.y, targetX, targetY)) {
+      const d = Math.hypot(enemy.x - p.x, enemy.y - p.y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = p;
+      }
+    }
+  }
+  return best;
+}
+
 export function updateEnemy() {
   if (state.isDead) return;
   if (enemy.alertPulse > 0) { enemy.alertPulse *= 0.94; if (enemy.alertPulse < 0.02) enemy.alertPulse = 0; }
   enemy.lastX = enemy.x; enemy.lastY = enemy.y;
 
   if (enemy.investigate) {
-    const tx = enemy.investigate.x;
-    const ty = enemy.investigate.y;
+    // If we see player directly — chase player, forget trail
+    if (isInEnemyVision()) {
+      const dx = player.x - enemy.x;
+      const dy = player.y - enemy.y;
+      const len = Math.hypot(dx, dy) || 1;
+      tryMove(enemy, dx / len, dy / len, CONFIG.enemyChaseSpeed);
+      enemy.direction = Math.atan2(dy, dx);
+      if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.radius + enemy.radius - 2) { handleDeath(); return; }
+      return;
+    }
+
+    // Scent Trail: find best point to go to
+    const trailPoint = findBestTrailPoint();
+    let tx, ty;
+    if (trailPoint) {
+      tx = trailPoint.x;
+      ty = trailPoint.y;
+    } else {
+      tx = enemy.investigate.x;
+      ty = enemy.investigate.y;
+    }
+
     const dx = tx - enemy.x;
     const dy = ty - enemy.y;
     const len = Math.hypot(dx, dy) || 1;
@@ -49,26 +89,22 @@ export function updateEnemy() {
 
       // Priority axis: try X first or Y first
       if (enemy.axisPriority === 0) {
-        // Try X toward target
         if (Math.abs(dx) > 1) {
           const xDir = dx > 0 ? 1 : -1;
           moved = tryMove(enemy, xDir, 0, sp);
           if (moved) enemy.direction = xDir > 0 ? 0 : Math.PI;
         }
-        // If X blocked, try Y
         if (!moved && Math.abs(dy) > 1) {
           const yDir = dy > 0 ? 1 : -1;
           moved = tryMove(enemy, 0, yDir, sp);
           if (moved) enemy.direction = yDir > 0 ? Math.PI / 2 : -Math.PI / 2;
         }
       } else {
-        // Try Y toward target
         if (Math.abs(dy) > 1) {
           const yDir = dy > 0 ? 1 : -1;
           moved = tryMove(enemy, 0, yDir, sp);
           if (moved) enemy.direction = yDir > 0 ? Math.PI / 2 : -Math.PI / 2;
         }
-        // If Y blocked, try X
         if (!moved && Math.abs(dx) > 1) {
           const xDir = dx > 0 ? 1 : -1;
           moved = tryMove(enemy, xDir, 0, sp);
@@ -76,14 +112,12 @@ export function updateEnemy() {
         }
       }
 
-      // If both primary axes blocked, try perpendiculars (wall-slide manually)
+      // If both primary axes blocked, try perpendiculars
       if (!moved) {
         const perps = [];
         if (Math.abs(dx) > Math.abs(dy)) {
-          // Target is more horizontal, try vertical slides
           perps.push({ x: 0, y: 1 }, { x: 0, y: -1 });
         } else {
-          // Target is more vertical, try horizontal slides
           perps.push({ x: 1, y: 0 }, { x: -1, y: 0 });
         }
         for (const p of perps) {
@@ -110,13 +144,16 @@ export function updateEnemy() {
 
       enemy.axisPriority = 1 - enemy.axisPriority;
     } else {
-      // Reached investigate point
+      // Reached trail point or investigate point
       const toPx = player.x - enemy.x, toPy = player.y - enemy.y;
       if (Math.hypot(toPx, toPy) < CONFIG.enemyVisionRange) enemy.direction = Math.atan2(toPy, toPx);
       else enemy.direction += (Math.random() - 0.5) * 0.15;
       enemy.investigate.timer--;
       if (enemy.investigate.timer % 25 === 0) playTone(280 + Math.random() * 40, 0.04, 'sine', 0.02);
-      if (enemy.investigate.timer <= 0) enemy.investigate = null;
+      if (enemy.investigate.timer <= 0) {
+        enemy.investigate = null;
+        playerTrail.length = 0; // Clear trail when investigate ends
+      }
     }
 
     if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.radius + enemy.radius - 2) { handleDeath(); return; }

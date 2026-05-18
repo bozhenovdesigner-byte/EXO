@@ -1,3 +1,5 @@
+export const playerTrail = [];
+
 export const state = {
   running: false, cardsFound: 0, silenceTimer: 0, echoTimer: 0,
   gameOver: false, win: false, heartbeatTimer: 0, screenPulse: 0,

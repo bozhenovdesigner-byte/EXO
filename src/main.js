@@ -35,6 +35,14 @@ function update() {
   } else state.silenceTimer++;
   if ((keys[' '] || keys['Spacebar']) && !player.breathHold && state.echoTimer === 0) triggerEcho();
   if (state.echoTimer > 0) state.echoTimer--;
+  // Record trail during investigate (every 8 frames, max 15 points)
+  if (enemy.investigate && state.running) {
+    const last = playerTrail[playerTrail.length - 1];
+    if (!last || Math.hypot(player.x - last.x, player.y - last.y) > 15) {
+      playerTrail.push({ x: player.x, y: player.y, time: Date.now() });
+      if (playerTrail.length > 15) playerTrail.shift();
+    }
+  }
   updateCards();
   updateEnemy();
   const pan = updateAtmosphere();
@@ -45,6 +53,9 @@ function update() {
 function triggerEcho() {
   playEcho();
   state.echoTimer = CONFIG.echoDuration;
+  // Record player trail starting from current position
+  playerTrail.length = 0;
+  playerTrail.push({ x: player.x, y: player.y, time: Date.now() });
   enemy.investigate = { x: player.x + (Math.random() - 0.5) * 20, y: player.y + (Math.random() - 0.5) * 20, timer: 170 };
   enemy.alertPulse = 1;
   playAlert();
@@ -64,6 +75,7 @@ function updateAtmosphere() {
     state.screenPulse = 0.08 + pan * 0.12;
   }
   if (state.heartbeatTimer > 0) state.heartbeatTimer--;
+  state.frameCount = (state.frameCount || 0) + 1;
   vignette.style.opacity = 0.5 + pan * 0.35;
   if (pan > 0.4 && Math.random() < 0.008 * pan) {
     ctx.fillStyle = `rgba(0,255,0,${0.05 + pan * 0.1})`;
